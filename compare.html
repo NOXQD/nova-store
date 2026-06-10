@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<!-- === COMPARE.HTML === -->
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Сравнение товаров — NOVA STORE</title>
+  <meta name="description" content="Сравнение товаров side-by-side — учебный интернет-магазин NOVA STORE">
+  <link rel="stylesheet" href="css/style.css?v=5">
+</head>
+<body>
+
+  <div id="app-header"></div>
+
+  <main>
+    <div class="container compare-page">
+      <h1 class="page-title">Сравнение товаров</h1>
+
+      <div class="compare-wrap" id="compareWrap" hidden>
+        <div class="compare-table-scroll">
+          <table class="compare-table" id="compareTable"></table>
+        </div>
+      </div>
+
+      <div class="cart-empty" id="compareEmpty" hidden>
+        <svg width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+          <line x1="18" y1="20" x2="18" y2="10"></line>
+          <line x1="12" y1="20" x2="12" y2="4"></line>
+          <line x1="6" y1="20" x2="6" y2="14"></line>
+        </svg>
+        <h2>Нечего сравнивать</h2>
+        <p>Добавьте 2–4 товара кнопкой сравнения на карточках в каталоге</p>
+        <a href="index.html" class="btn btn-primary">Перейти в каталог</a>
+      </div>
+
+      <div class="catalog-error" id="compareError" hidden>
+        <h3>Не удалось загрузить товары</h3>
+        <p>Проверьте подключение к интернету и обновите страницу</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>© 2026 NOVA STORE. Учебный проект — данные из <a href="https://fakestoreapi.com" target="_blank" rel="noopener">Fake Store API</a> и <a href="https://dummyjson.com" target="_blank" rel="noopener">DummyJSON</a></p>
+    </div>
+  </footer>
+
+  <script src="js/models.js?v=5"></script>
+  <script src="js/api.js?v=5"></script>
+  <script src="js/common.js?v=5"></script>
+  <script src="js/chat.js?v=5"></script>
+  <script src="js/compare.js?v=5"></script>
+</body>
+</html>

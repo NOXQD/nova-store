@@ -1,14 +1,13 @@
 // === AUTH.JS ===
-// Вход / регистрация: вкладки, floating labels, валидация с shake-анимацией,
-// показ/скрытие пароля, loader на кнопке, success checkmark.
-// Учебный проект: пользователи хранятся в LocalStorage в открытом виде —
-// в реальных приложениях так делать нельзя.
+// Вход / регистрация. Безопасность:
+//  - пароли хранятся ТОЛЬКО в виде SHA-256 хэша с индивидуальной солью;
+//  - в сессии (novastore_current_user) — только имя и email, без пароля;
+//  - старые учётные записи с открытым паролем мигрируются на хэш при входе.
 
 (() => {
   const USERS_KEY = 'novastore_users';
   const CURRENT_USER_KEY = 'novastore_current_user';
 
-  const authCard = document.getElementById('authCard');
   const tabLogin = document.getElementById('tabLogin');
   const tabRegister = document.getElementById('tabRegister');
   const tabIndicator = document.getElementById('authTabIndicator');
@@ -23,36 +22,32 @@
 
   // ---------- Хранилище пользователей ----------
 
-  function loadUsers() {
+  function loadUserRecords() {
     try {
-      const data = JSON.parse(localStorage.getItem(USERS_KEY)) || [];
-      return data.map((u) => new User(u.name, u.email, u.password));
+      return JSON.parse(localStorage.getItem(USERS_KEY)) || [];
     } catch {
       return [];
     }
   }
 
-  function saveUsers(users) {
-    localStorage.setItem(
-      USERS_KEY,
-      JSON.stringify(users.map((u) => ({ name: u.name, email: u.email, password: u.password })))
-    );
+  function saveUserRecords(records) {
+    localStorage.setItem(USERS_KEY, JSON.stringify(records));
   }
 
-  function getCurrentUser() {
-    const data = getStoredUser();
-    return data ? new User(data.name, data.email, data.password) : null;
-  }
-
-  function setCurrentUser(user) {
+  function setCurrentUser(record) {
+    // В сессию попадают только имя и email — никаких паролей и хэшей
     localStorage.setItem(
       CURRENT_USER_KEY,
-      JSON.stringify({ name: user.name, email: user.email, password: user.password })
+      JSON.stringify({ name: record.name, email: record.email })
     );
   }
 
   function logoutUser() {
     localStorage.removeItem(CURRENT_USER_KEY);
+  }
+
+  function getCurrentUser() {
+    return getStoredUser();
   }
 
   // ---------- Вкладки ----------
@@ -66,7 +61,6 @@
     tabIndicator.classList.toggle('right', !isLogin);
 
     authSuccess.hidden = true;
-    // Перезапуск slide-анимации панели
     panelLogin.classList.remove('active');
     panelRegister.classList.remove('active');
     void panelLogin.offsetWidth;
@@ -108,9 +102,6 @@
     btn.disabled = loading;
   }
 
-  // Имитация сетевой задержки, чтобы был виден loader на кнопке
-  const fakeDelay = (ms = 600) => new Promise((resolve) => setTimeout(resolve, ms));
-
   // ---------- Регистрация ----------
 
   async function registerUser(name, email, password, passwordConfirm) {
@@ -136,27 +127,28 @@
       valid = false;
     } else setFieldError('regPasswordConfirm', '');
 
-    if (!valid) return false;
+    if (!valid) return null;
 
-    const users = loadUsers();
-    if (users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
+    const records = loadUserRecords();
+    if (records.some((r) => r.email.toLowerCase() === email.toLowerCase())) {
       setFieldError('regEmail', 'Пользователь с таким email уже существует');
-      return false;
+      return null;
     }
 
-    const user = new User(name, email, password);
-    users.push(user);
-    saveUsers(users);
-    return user;
+    const salt = randomSalt();
+    const passwordHash = await hashPassword(password, salt);
+    const record = { name, email, salt, passwordHash };
+    records.push(record);
+    saveUserRecords(records);
+    return record;
   }
 
   registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const submitBtn = document.getElementById('registerSubmit');
     setLoading(submitBtn, true);
-    await fakeDelay();
 
-    const user = await registerUser(
+    const record = await registerUser(
       document.getElementById('regName').value.trim(),
       document.getElementById('regEmail').value.trim(),
       document.getElementById('regPassword').value,
@@ -165,18 +157,17 @@
 
     setLoading(submitBtn, false);
 
-    if (!user) {
+    if (!record) {
       shakeForm(registerForm);
       showToast('Проверьте правильность заполнения формы', 'error');
       return;
     }
 
-    // Авто-вход после регистрации: checkmark → редирект в каталог
-    setCurrentUser(user);
+    setCurrentUser(record);
     registerForm.reset();
     panelRegister.classList.remove('active');
     authSuccess.hidden = false;
-    showToast(`Добро пожаловать, ${user.name}!`, 'success');
+    showToast(`Добро пожаловать, ${record.name}!`, 'success');
 
     setTimeout(() => {
       window.location.href = 'index.html';
@@ -200,42 +191,58 @@
 
     if (!valid) return null;
 
-    const users = loadUsers();
-    const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+    const records = loadUserRecords();
+    const record = records.find((r) => r.email.toLowerCase() === email.toLowerCase());
 
-    if (!user) {
+    if (!record) {
       setFieldError('loginEmail', 'Пользователь с таким email не найден');
       return null;
     }
-    if (!user.checkPassword(password)) {
+
+    let passwordOk = false;
+    if (record.passwordHash) {
+      passwordOk = (await hashPassword(password, record.salt)) === record.passwordHash;
+    } else if (record.password) {
+      // Миграция старой записи: проверяем открытый пароль через класс User
+      // и сразу заменяем его на хэш с солью
+      const legacy = new User(record.name, record.email, record.password);
+      passwordOk = legacy.checkPassword(password);
+      if (passwordOk) {
+        record.salt = randomSalt();
+        record.passwordHash = await hashPassword(password, record.salt);
+        delete record.password;
+        saveUserRecords(records);
+      }
+    }
+
+    if (!passwordOk) {
       setFieldError('loginPassword', 'Неверный пароль');
       return null;
     }
 
-    setCurrentUser(user);
-    return user;
+    setCurrentUser(record);
+    return record;
   }
 
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const submitBtn = document.getElementById('loginSubmit');
     setLoading(submitBtn, true);
-    await fakeDelay();
 
-    const user = await loginUser(
+    const record = await loginUser(
       document.getElementById('loginEmail').value.trim(),
       document.getElementById('loginPassword').value
     );
 
     setLoading(submitBtn, false);
 
-    if (!user) {
+    if (!record) {
       shakeForm(loginForm);
       showToast('Не удалось войти', 'error');
       return;
     }
 
-    showToast(`Добро пожаловать, ${user.name}!`, 'success');
+    showToast(`Добро пожаловать, ${record.name}!`, 'success');
     setTimeout(() => {
       window.location.href = 'index.html';
     }, 900);
@@ -247,8 +254,6 @@
     input.addEventListener('input', () => setFieldError(input.id, ''));
   });
 
-  // ---------- Если уже вошли — сообщаем ----------
-
   document.addEventListener('DOMContentLoaded', () => {
     const current = getCurrentUser();
     if (current) {
@@ -256,6 +261,5 @@
     }
   });
 
-  // Экспорт для использования из консоли / других страниц
   window.authApi = { registerUser, loginUser, logoutUser, getCurrentUser };
 })();

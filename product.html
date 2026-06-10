@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Товар — NOVA STORE</title>
   <meta name="description" content="Страница товара — учебный интернет-магазин NOVA STORE">
-  <link rel="stylesheet" href="css/style.css?v=4">
+  <link rel="stylesheet" href="css/style.css?v=5">
 </head>
 <body>
 
@@ -38,6 +38,42 @@
       <!-- Контент товара (рендерится из JS) -->
       <div class="product-layout fade-in" id="productContent" hidden></div>
 
+      <!-- Отзывы -->
+      <section class="reviews-section glass-card" id="reviewsSection" hidden>
+        <div class="reviews-head">
+          <h2>Отзывы <span id="reviewsCount"></span></h2>
+          <span class="ai-badge" title="Спам, ссылки и оскорбления отфильтровываются автоматически">🛡 ИИ-модерация</span>
+        </div>
+
+        <form class="review-form" id="reviewForm" novalidate>
+          <div class="review-stars-input" id="reviewStarsInput" aria-label="Ваша оценка">
+            <button type="button" data-rate="1">★</button>
+            <button type="button" data-rate="2">★</button>
+            <button type="button" data-rate="3">★</button>
+            <button type="button" data-rate="4">★</button>
+            <button type="button" data-rate="5">★</button>
+          </div>
+          <div class="form-field">
+            <input type="text" id="reviewText" placeholder=" " maxlength="400">
+            <label for="reviewText">Поделитесь впечатлениями о товаре</label>
+            <span class="field-error" id="reviewError"></span>
+          </div>
+          <button type="submit" class="btn btn-primary">Оставить отзыв</button>
+        </form>
+
+        <div class="reviews-list" id="reviewsList"></div>
+      </section>
+
+      <!-- Рекомендации -->
+      <section class="recs-section" id="similarSection" hidden>
+        <h2 class="section-title">Похожие товары</h2>
+        <div class="recs-row" id="similarRow"></div>
+      </section>
+      <section class="recs-section" id="alsoBuySection" hidden>
+        <h2 class="section-title">С этим часто берут</h2>
+        <div class="recs-row" id="alsoBuyRow"></div>
+      </section>
+
       <!-- Ошибка -->
       <div class="catalog-error" id="productError" hidden>
         <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -58,9 +94,10 @@
     </div>
   </footer>
 
-  <script src="js/models.js"></script>
-  <script src="js/api.js"></script>
-  <script src="js/common.js"></script>
-  <script src="js/product.js"></script>
+  <script src="js/models.js?v=5"></script>
+  <script src="js/api.js?v=5"></script>
+  <script src="js/common.js?v=5"></script>
+  <script src="js/chat.js?v=5"></script>
+  <script src="js/product.js?v=5"></script>
 </body>
 </html>

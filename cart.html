@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Корзина — NOVA STORE</title>
   <meta name="description" content="Корзина — учебный интернет-магазин NOVA STORE">
-  <link rel="stylesheet" href="css/style.css?v=4">
+  <link rel="stylesheet" href="css/style.css?v=5">
 </head>
 <body>
 
@@ -39,6 +39,28 @@
             <span>Товаров:</span>
             <span id="summaryCount">0</span>
           </div>
+          <div class="summary-row">
+            <span>Сумма:</span>
+            <span id="summarySubtotal">$0.00</span>
+          </div>
+
+          <!-- Промокод -->
+          <div class="coupon-box">
+            <div class="coupon-input-row" id="couponInputRow">
+              <input type="text" id="couponInput" class="coupon-input" placeholder="Промокод" autocomplete="off" aria-label="Промокод">
+              <button type="button" class="btn btn-ghost coupon-apply" id="couponApplyBtn">ОК</button>
+            </div>
+            <div class="coupon-applied" id="couponApplied" hidden>
+              <span id="couponAppliedText"></span>
+              <button type="button" class="coupon-remove" id="couponRemoveBtn" aria-label="Убрать промокод">✕</button>
+            </div>
+            <span class="field-error" id="couponError"></span>
+          </div>
+
+          <div class="summary-row coupon-discount-row" id="discountRow" hidden>
+            <span>Скидка:</span>
+            <span id="summaryDiscount">−$0.00</span>
+          </div>
           <div class="summary-row summary-total">
             <span>К оплате:</span>
             <span id="summaryTotal">$0.00</span>
@@ -66,25 +88,70 @@
   <div class="modal-overlay" id="checkoutModal" hidden>
     <div class="modal glass-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
 
-      <!-- Шаг 1: состав заказа + способ оплаты -->
-      <div class="modal-step" id="stepOrder">
-        <h3 id="modalTitle">Оформление заказа</h3>
-        <div class="modal-body" id="modalBody"></div>
+      <!-- Прогресс шагов -->
+      <div class="checkout-steps" id="checkoutSteps" aria-hidden="true">
+        <span class="checkout-step-dot" data-step="1">1</span>
+        <span class="checkout-step-line"></span>
+        <span class="checkout-step-dot" data-step="2">2</span>
+        <span class="checkout-step-line"></span>
+        <span class="checkout-step-dot" data-step="3">3</span>
+      </div>
 
+      <!-- Шаг 1: состав заказа -->
+      <div class="modal-step" id="stepOrder">
+        <h3 id="modalTitle">Ваш заказ</h3>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="modalCancel">Отмена</button>
+          <button type="button" class="btn btn-primary" id="toAddressBtn">Далее: доставка →</button>
+        </div>
+      </div>
+
+      <!-- Шаг 2: адрес и способ доставки -->
+      <div class="modal-step" id="stepAddress" hidden>
+        <h3>Доставка</h3>
+        <form id="addressForm" novalidate>
+          <div class="form-field form-field-select">
+            <select id="deliveryMethod">
+              <option value="pickup" selected>Пункт выдачи — бесплатно</option>
+              <option value="courier">Курьер до двери — $3.00</option>
+            </select>
+            <label for="deliveryMethod" class="select-label">Способ доставки</label>
+          </div>
+          <div class="form-field">
+            <input type="text" id="addrCity" placeholder=" " value="Астана" required>
+            <label for="addrCity">Город</label>
+            <span class="field-error" id="addrCityError"></span>
+          </div>
+          <div class="form-field">
+            <input type="text" id="addrStreet" placeholder=" " required>
+            <label for="addrStreet">Улица, дом, квартира / пункт выдачи</label>
+            <span class="field-error" id="addrStreetError"></span>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" id="addressBackBtn">← Назад</button>
+            <button type="submit" class="btn btn-primary">Далее: оплата →</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Шаг 3: способ оплаты -->
+      <div class="modal-step" id="stepPay" hidden>
+        <h3>Оплата</h3>
+        <div class="modal-body" id="payTotals"></div>
         <h4 class="modal-subtitle">Способ оплаты</h4>
         <div class="card-list" id="cardList"></div>
         <button type="button" class="btn btn-ghost btn-block" id="addCardBtn">+ Привязать новую карту</button>
-
         <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" id="modalCancel">Отмена</button>
+          <button type="button" class="btn btn-ghost" id="payBackBtn">← Назад</button>
           <button type="button" class="btn btn-primary" id="payBtn">Оплатить</button>
         </div>
       </div>
 
-      <!-- Шаг 2: привязка карты -->
+      <!-- Привязка карты -->
       <div class="modal-step" id="stepCard" hidden>
         <h3>Привязка карты</h3>
-        <p class="modal-note">Учебный проект: данные карты никуда не отправляются, сохраняются только последние 4 цифры</p>
+        <p class="modal-note">Учебный проект: данные карты никуда не отправляются, сохраняются только последние 4 цифры. Тестовая карта с окончанием 0002 имитирует отказ банка.</p>
         <form id="cardForm" novalidate>
           <div class="form-field">
             <input type="text" id="cardNumber" placeholder=" " inputmode="numeric" autocomplete="cc-number" maxlength="19" required>
@@ -115,14 +182,14 @@
         </form>
       </div>
 
-      <!-- Шаг 3: обработка платежа -->
+      <!-- Обработка платежа -->
       <div class="modal-step modal-paying" id="stepPaying" hidden>
         <div class="pay-spinner" aria-hidden="true"></div>
         <h3>Обработка платежа…</h3>
-        <p class="modal-note">Не закрывайте страницу</p>
+        <p class="modal-note" id="payingStatus">Создаём платёж</p>
       </div>
 
-      <!-- Шаг 4: успех -->
+      <!-- Успех -->
       <div class="modal-step modal-success" id="stepSuccess" hidden>
         <svg class="checkmark" viewBox="0 0 52 52" width="80" height="80" aria-hidden="true">
           <circle class="checkmark-circle" cx="26" cy="26" r="24" fill="none"/>
@@ -141,13 +208,14 @@
 
   <footer class="site-footer">
     <div class="container">
-      <p>© 2026 NOVA STORE. Учебный проект — данные из <a href="https://fakestoreapi.com" target="_blank" rel="noopener">Fake Store API</a></p>
+      <p>© 2026 NOVA STORE. Учебный проект — данные из <a href="https://fakestoreapi.com" target="_blank" rel="noopener">Fake Store API</a> и <a href="https://dummyjson.com" target="_blank" rel="noopener">DummyJSON</a></p>
     </div>
   </footer>
 
-  <script src="js/models.js"></script>
-  <script src="js/api.js"></script>
-  <script src="js/common.js"></script>
-  <script src="js/cart.js"></script>
+  <script src="js/models.js?v=5"></script>
+  <script src="js/api.js?v=5"></script>
+  <script src="js/common.js?v=5"></script>
+  <script src="js/chat.js?v=5"></script>
+  <script src="js/cart.js?v=5"></script>
 </body>
 </html>

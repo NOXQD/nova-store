@@ -1,6 +1,6 @@
 // === CART.JS ===
-// Корзина: гейт авторизации, рендер из LocalStorage, изменение количества,
-// удаление с анимацией, многошаговое оформление: заказ → карта → оплата → успех.
+// Корзина: гейт авторизации, промокоды, многошаговый checkout:
+// состав → адрес и доставка → карта → платёжный шлюз (мок) → успех.
 
 (() => {
   const authGate = document.getElementById('cartAuthGate');
@@ -8,22 +8,46 @@
   const itemsBox = document.getElementById('cartItems');
   const emptyBlock = document.getElementById('cartEmpty');
   const summaryCount = document.getElementById('summaryCount');
+  const summarySubtotal = document.getElementById('summarySubtotal');
   const summaryTotal = document.getElementById('summaryTotal');
+  const summaryDiscount = document.getElementById('summaryDiscount');
+  const discountRow = document.getElementById('discountRow');
   const checkoutBtn = document.getElementById('checkoutBtn');
   const clearBtn = document.getElementById('clearCartBtn');
 
+  const couponInput = document.getElementById('couponInput');
+  const couponApplyBtn = document.getElementById('couponApplyBtn');
+  const couponInputRow = document.getElementById('couponInputRow');
+  const couponApplied = document.getElementById('couponApplied');
+  const couponAppliedText = document.getElementById('couponAppliedText');
+  const couponRemoveBtn = document.getElementById('couponRemoveBtn');
+  const couponError = document.getElementById('couponError');
+
   const modal = document.getElementById('checkoutModal');
+  const checkoutSteps = document.getElementById('checkoutSteps');
   const modalBody = document.getElementById('modalBody');
   const stepOrder = document.getElementById('stepOrder');
+  const stepAddress = document.getElementById('stepAddress');
+  const stepPay = document.getElementById('stepPay');
   const stepCard = document.getElementById('stepCard');
   const stepPaying = document.getElementById('stepPaying');
   const stepSuccess = document.getElementById('stepSuccess');
+  const payTotals = document.getElementById('payTotals');
   const cardList = document.getElementById('cardList');
   const addCardBtn = document.getElementById('addCardBtn');
   const payBtn = document.getElementById('payBtn');
+  const payingStatus = document.getElementById('payingStatus');
   const modalCancel = document.getElementById('modalCancel');
   const modalClose = document.getElementById('modalClose');
   const successOrderInfo = document.getElementById('successOrderInfo');
+
+  const toAddressBtn = document.getElementById('toAddressBtn');
+  const addressForm = document.getElementById('addressForm');
+  const addressBackBtn = document.getElementById('addressBackBtn');
+  const deliveryMethod = document.getElementById('deliveryMethod');
+  const addrCity = document.getElementById('addrCity');
+  const addrStreet = document.getElementById('addrStreet');
+  const payBackBtn = document.getElementById('payBackBtn');
 
   const cardForm = document.getElementById('cardForm');
   const cardNumber = document.getElementById('cardNumber');
@@ -33,16 +57,39 @@
   const cardBackBtn = document.getElementById('cardBackBtn');
 
   const cart = Cart.load();
-  let displayedTotal = cart.getTotal();
+  let displayedTotal = 0;
   let clearArmed = false;
   let clearArmTimer = null;
   let selectedCardId = null;
   let orderPlaced = false;
 
-  // ---------- Плавная анимация числа итога ----------
+  let appliedCoupon = null; // { code, amount, label }
+  let checkoutAddress = null;
+  const DELIVERY_FEES = { pickup: 0, courier: 3 };
+
+  // ---------- Суммы ----------
+
+  function getDiscountAmount() {
+    if (!appliedCoupon) return 0;
+    const revalidated = validateCoupon(appliedCoupon.code, cart.getTotal());
+    if (revalidated.error) {
+      appliedCoupon = null;
+      renderCouponBox();
+      return 0;
+    }
+    appliedCoupon = revalidated;
+    return revalidated.amount;
+  }
+
+  function getDeliveryFee() {
+    return DELIVERY_FEES[deliveryMethod.value] || 0;
+  }
+
+  function getFinalTotal(withDelivery = false) {
+    return Math.max(0, cart.getTotal() - getDiscountAmount() + (withDelivery ? getDeliveryFee() : 0));
+  }
 
   function animateNumber(el, from, to, duration = 450) {
-    // В фоновой вкладке requestAnimationFrame заморожен — ставим значение сразу
     if (document.hidden || from === to) {
       el.textContent = `$${to.toFixed(2)}`;
       return;
@@ -58,11 +105,56 @@
   }
 
   function calculateTotal() {
-    const total = cart.getTotal();
+    const subtotal = cart.getTotal();
+    const discount = getDiscountAmount();
+    const total = Math.max(0, subtotal - discount);
+
     summaryCount.textContent = cart.getCount();
+    summarySubtotal.textContent = `$${subtotal.toFixed(2)}`;
+    discountRow.hidden = discount === 0;
+    summaryDiscount.textContent = `−$${discount.toFixed(2)}`;
     animateNumber(summaryTotal, displayedTotal, total);
     displayedTotal = total;
   }
+
+  // ---------- Промокоды ----------
+
+  function renderCouponBox() {
+    const active = Boolean(appliedCoupon);
+    couponInputRow.hidden = active;
+    couponApplied.hidden = !active;
+    if (active) {
+      couponAppliedText.textContent = `${appliedCoupon.code} · ${appliedCoupon.label}`;
+    }
+  }
+
+  couponApplyBtn.addEventListener('click', () => {
+    couponError.textContent = '';
+    const result = validateCoupon(couponInput.value, cart.getTotal());
+    if (result.error) {
+      couponError.textContent = result.error;
+      return;
+    }
+    appliedCoupon = result;
+    couponInput.value = '';
+    renderCouponBox();
+    calculateTotal();
+    showToast(`Промокод ${result.code} применён`, 'success');
+  });
+
+  couponInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      couponApplyBtn.click();
+    }
+  });
+
+  couponRemoveBtn.addEventListener('click', () => {
+    appliedCoupon = null;
+    couponError.textContent = '';
+    renderCouponBox();
+    calculateTotal();
+  });
 
   // ---------- Рендер корзины ----------
 
@@ -120,6 +212,7 @@
       .map((item, i) => renderRow(item, i, animate))
       .join('');
 
+    renderCouponBox();
     calculateTotal();
     updateCartIcon();
   }
@@ -142,7 +235,6 @@
     updateCartIcon(true);
   }
 
-  // Анимация удаления: slideOut + fade + плавный collapse высоты
   function removeRowAnimated(id, alsoRemoveFromCart = true) {
     const row = itemsBox.querySelector(`.cart-row[data-id="${id}"]`);
     if (!row) {
@@ -150,7 +242,7 @@
       return;
     }
     row.style.maxHeight = `${row.scrollHeight}px`;
-    void row.offsetHeight; // фиксируем стартовую высоту перед transition
+    void row.offsetHeight;
     row.classList.add('removing');
     setTimeout(() => {
       if (alsoRemoveFromCart) cart.removeProduct(id);
@@ -171,7 +263,7 @@
     else if (action === 'remove') removeRowAnimated(id);
   });
 
-  // ---------- Очистка корзины (двухшаговое подтверждение) ----------
+  // ---------- Очистка корзины ----------
 
   clearBtn.addEventListener('click', () => {
     if (cart.items.length === 0) return;
@@ -188,20 +280,64 @@
     clearArmed = false;
     clearBtn.textContent = 'Очистить корзину';
     cart.clear();
+    appliedCoupon = null;
     renderCart(false);
     updateCartIcon();
     showToast('Корзина очищена', 'info');
   });
 
-  // ---------- Оформление заказа ----------
+  // ---------- Checkout: шаги ----------
+
+  const STEP_NUMBERS = new Map([[stepOrder, 1], [stepAddress, 2], [stepPay, 3], [stepCard, 3]]);
 
   function showStep(step) {
-    [stepOrder, stepCard, stepPaying, stepSuccess].forEach((s) => {
+    [stepOrder, stepAddress, stepPay, stepCard, stepPaying, stepSuccess].forEach((s) => {
       s.hidden = s !== step;
+    });
+    const num = STEP_NUMBERS.get(step) || 0;
+    checkoutSteps.hidden = num === 0;
+    checkoutSteps.querySelectorAll('.checkout-step-dot').forEach((dot) => {
+      dot.classList.toggle('active', Number(dot.dataset.step) <= num);
     });
   }
 
-  // Список привязанных карт (радио-выбор)
+  function renderOrderStep() {
+    const discount = getDiscountAmount();
+    const lines = cart.items
+      .map(
+        (item) => `
+        <div class="modal-line">
+          <span>${escapeHtml(item.product.title)} × ${item.quantity}</span>
+          <span>$${item.getTotalPrice().toFixed(2)}</span>
+        </div>`
+      )
+      .join('');
+    modalBody.innerHTML = `
+      ${lines}
+      ${discount > 0 ? `
+        <div class="modal-line">
+          <span>Промокод ${appliedCoupon.code}</span>
+          <span>−$${discount.toFixed(2)}</span>
+        </div>` : ''}
+      <div class="modal-line modal-total">
+        <span>Итого:</span>
+        <span>$${getFinalTotal(false).toFixed(2)}</span>
+      </div>
+    `;
+  }
+
+  function renderPayStep() {
+    const discount = getDiscountAmount();
+    const fee = getDeliveryFee();
+    payTotals.innerHTML = `
+      <div class="modal-line"><span>Товары (${cart.getCount()} шт.)</span><span>$${cart.getTotal().toFixed(2)}</span></div>
+      ${discount > 0 ? `<div class="modal-line"><span>Скидка ${appliedCoupon.code}</span><span>−$${discount.toFixed(2)}</span></div>` : ''}
+      <div class="modal-line"><span>Доставка (${deliveryMethod.value === 'courier' ? 'курьер' : 'пункт выдачи'})</span><span>${fee > 0 ? `$${fee.toFixed(2)}` : 'бесплатно'}</span></div>
+      <div class="modal-line modal-total"><span>К оплате:</span><span>$${getFinalTotal(true).toFixed(2)}</span></div>
+    `;
+    renderCardList();
+  }
+
   function renderCardList() {
     const cards = loadCards();
 
@@ -226,7 +362,7 @@
     }
 
     payBtn.disabled = !selectedCardId;
-    payBtn.textContent = `Оплатить $${cart.getTotal().toFixed(2)}`;
+    payBtn.textContent = `Оплатить $${getFinalTotal(true).toFixed(2)}`;
   }
 
   cardList.addEventListener('change', (e) => {
@@ -237,24 +373,8 @@
   });
 
   function openModal() {
-    const lines = cart.items
-      .map(
-        (item) => `
-        <div class="modal-line">
-          <span>${escapeHtml(item.product.title)} × ${item.quantity}</span>
-          <span>$${item.getTotalPrice().toFixed(2)}</span>
-        </div>`
-      )
-      .join('');
-    modalBody.innerHTML = `
-      ${lines}
-      <div class="modal-line modal-total">
-        <span>Итого:</span>
-        <span>$${cart.getTotal().toFixed(2)}</span>
-      </div>
-    `;
-    renderCardList();
     orderPlaced = false;
+    renderOrderStep();
     showStep(stepOrder);
     modal.hidden = false;
     document.body.style.overflow = 'hidden';
@@ -263,7 +383,10 @@
   function closeModal() {
     modal.hidden = true;
     document.body.style.overflow = '';
-    if (orderPlaced) renderCart(false);
+    if (orderPlaced) {
+      appliedCoupon = null;
+      renderCart(false);
+    }
   }
 
   checkoutBtn.addEventListener('click', () => {
@@ -275,7 +398,55 @@
     openModal();
   });
 
-  // Шаг привязки карты
+  // Шаг 1 → 2
+  toAddressBtn.addEventListener('click', () => showStep(stepAddress));
+  addressBackBtn.addEventListener('click', () => {
+    renderOrderStep();
+    showStep(stepOrder);
+  });
+
+  // Шаг 2 → 3
+  addressForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    let valid = true;
+
+    if (addrCity.value.trim().length < 2) {
+      document.getElementById('addrCityError').textContent = 'Укажите город';
+      addrCity.classList.add('invalid');
+      valid = false;
+    } else {
+      document.getElementById('addrCityError').textContent = '';
+      addrCity.classList.remove('invalid');
+    }
+
+    if (addrStreet.value.trim().length < 5) {
+      document.getElementById('addrStreetError').textContent = 'Укажите адрес доставки или пункт выдачи';
+      addrStreet.classList.add('invalid');
+      valid = false;
+    } else {
+      document.getElementById('addrStreetError').textContent = '';
+      addrStreet.classList.remove('invalid');
+    }
+
+    if (!valid) {
+      addressForm.classList.remove('shake');
+      void addressForm.offsetWidth;
+      addressForm.classList.add('shake');
+      return;
+    }
+
+    checkoutAddress = {
+      city: addrCity.value.trim(),
+      street: addrStreet.value.trim(),
+      method: deliveryMethod.value,
+    };
+    renderPayStep();
+    showStep(stepPay);
+  });
+
+  payBackBtn.addEventListener('click', () => showStep(stepAddress));
+
+  // Привязка карты
   addCardBtn.addEventListener('click', () => {
     cardForm.reset();
     ['cardNumber', 'cardHolder', 'cardExp', 'cardCvc'].forEach((id) => {
@@ -286,8 +457,8 @@
   });
 
   cardBackBtn.addEventListener('click', () => {
-    renderCardList();
-    showStep(stepOrder);
+    renderPayStep();
+    showStep(stepPay);
   });
 
   attachCardInputMasks(cardNumber, cardExp, cardCvc);
@@ -323,37 +494,59 @@
     selectedCardId = card.id;
 
     showToast(`Карта •••• ${card.last4} привязана`, 'success');
-    renderCardList();
-    showStep(stepOrder);
+    renderPayStep();
+    showStep(stepPay);
   });
 
-  // Оплата (имитация обработки платежа)
-  payBtn.addEventListener('click', () => {
+  // ---------- Оплата через мок платёжного шлюза ----------
+
+  payBtn.addEventListener('click', async () => {
     if (!selectedCardId) {
       showToast('Привяжите карту для оплаты', 'error');
       return;
     }
     const card = loadCards().find((c) => c.id === selectedCardId);
-    if (!card) return;
+    if (!card || !checkoutAddress) return;
 
+    const finalTotal = getFinalTotal(true);
     showStep(stepPaying);
 
-    setTimeout(() => {
-      const order = createOrder(cart, card);
-      cart.clear();
-      orderPlaced = true;
-      updateCartIcon();
-      successOrderInfo.textContent =
-        `Заказ ${order.id} на сумму $${order.total.toFixed(2)} оплачен картой •••• ${card.last4}`;
-      showStep(stepSuccess);
-    }, 2200);
+    payingStatus.textContent = 'Создаём платёж…';
+    const intent = await PaymentGateway.createIntent(finalTotal);
+
+    payingStatus.textContent = `Подтверждаем оплату картой •••• ${card.last4}…`;
+    const result = await PaymentGateway.confirm(intent, card);
+
+    if (result.status !== 'succeeded') {
+      showToast(result.error || 'Платёж отклонён', 'error');
+      renderPayStep();
+      showStep(stepPay);
+      return;
+    }
+
+    const order = createOrder(cart, card, {
+      coupon: appliedCoupon ? appliedCoupon.code : null,
+      discountAmount: getDiscountAmount(),
+      deliveryFee: getDeliveryFee(),
+      deliveryMethod: checkoutAddress.method === 'courier' ? 'Курьер' : 'Пункт выдачи',
+      address: `${checkoutAddress.city}, ${checkoutAddress.street}`,
+      finalTotal,
+      receiptId: result.receiptId,
+    });
+    cart.clear();
+    orderPlaced = true;
+    updateCartIcon();
+
+    successOrderInfo.textContent =
+      `Заказ ${order.id} на сумму $${order.total.toFixed(2)} оплачен картой •••• ${card.last4}. ` +
+      `Доставка: ${order.deliveryMethod.toLowerCase()}, ${order.address}`;
+    showStep(stepSuccess);
   });
 
   modalCancel.addEventListener('click', closeModal);
   modalClose.addEventListener('click', closeModal);
 
   modal.addEventListener('click', (e) => {
-    // не даём закрыть модал кликом по фону во время «оплаты»
     if (e.target === modal && stepPaying.hidden) closeModal();
   });
 
@@ -364,6 +557,7 @@
   // ---------- Инициализация ----------
 
   document.addEventListener('DOMContentLoaded', () => {
+    displayedTotal = cart.getTotal();
     renderCart(true);
   });
 })();

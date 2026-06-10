@@ -104,9 +104,11 @@
     submitBtn.disabled = true;
     await new Promise((resolve) => setTimeout(resolve, 900));
 
+    // Безопасность: полный ИИН/БИН не сохраняется — только маска.
+    // Контрольный разряд уже проверен, дальше документ не нужен.
     saveSellerProfile({
       type: bizType.value,
-      idNumber: bizId.value,
+      idNumberMasked: maskIdNumber(bizId.value),
       shopName: shopName.value.trim(),
       phone: bizPhone.value.trim(),
       registeredAt: new Date().toISOString(),
@@ -120,8 +122,15 @@
 
   // ---------- Дашборд ----------
 
-  function maskIdNumber(id) {
-    return `${id.slice(0, 4)} **** ${id.slice(-4)}`;
+  // Рейтинг магазина: средняя оценка по отзывам на товары продавца
+  function shopRating() {
+    const productIds = myProducts().map((p) => p.id);
+    const rates = [];
+    for (const id of productIds) {
+      loadReviews(id).forEach((r) => rates.push(r.rate));
+    }
+    if (rates.length === 0) return null;
+    return { rate: rates.reduce((s, r) => s + r, 0) / rates.length, count: rates.length };
   }
 
   function renderDashboard(profile) {
@@ -130,11 +139,18 @@
       day: 'numeric', month: 'long', year: 'numeric',
     });
     const idLabel = profile.type === 'too' ? 'БИН' : 'ИИН';
+    const masked = profile.idNumberMasked || (profile.idNumber ? maskIdNumber(profile.idNumber) : '—');
+    const rating = shopRating();
     dashMeta.innerHTML = `
       <div class="seller-meta-row"><span>Форма бизнеса</span><span>${BIZ_LABELS[profile.type] || profile.type}</span></div>
-      <div class="seller-meta-row"><span>${idLabel}</span><span>${maskIdNumber(profile.idNumber)}</span></div>
+      <div class="seller-meta-row"><span>${idLabel}</span><span>${masked}</span></div>
       <div class="seller-meta-row"><span>Телефон</span><span>${escapeHtml(profile.phone)}</span></div>
       <div class="seller-meta-row"><span>Дата регистрации</span><span>${registered}</span></div>
+      <div class="seller-meta-row"><span>Рейтинг магазина</span><span>${
+        rating
+          ? `<span class="stars">${starsHtml(rating.rate)}</span> ${rating.rate.toFixed(1)} (${rating.count})`
+          : 'отзывов пока нет'
+      }</span></div>
     `;
     renderMyProducts();
   }

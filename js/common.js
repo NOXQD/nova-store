@@ -1,7 +1,7 @@
 // === COMMON.JS ===
-// Общие функции: шапка (топ-бар, поиск, иконки), badge корзины, toast, ripple,
-// reveal-анимации, авторизация-гейт, банковские карты, заказы,
-// кабинет продавца (ИП/ИИН), утилиты.
+// Общие функции: шапка, нижняя мобильная навигация, toast, ripple, reveal,
+// безопасность данных (хэширование паролей, минимизация хранимого),
+// избранное, сравнение, купоны, мок платёжного шлюза, карты, заказы, продавцы.
 
 // ---------- Утилиты ----------
 
@@ -22,7 +22,6 @@ function debounce(fn, ms = 300) {
   };
 }
 
-// Русские названия категорий обоих API
 const CATEGORY_LABELS = {
   electronics: 'Электроника',
   jewelery: 'Украшения',
@@ -63,7 +62,6 @@ function getCategoryLabel(category) {
   return readable.charAt(0).toUpperCase() + readable.slice(1);
 }
 
-// Глобальный onerror-обработчик для всех img
 function handleImgError(img) {
   img.onerror = null;
   img.removeAttribute('src');
@@ -73,7 +71,6 @@ function handleImgError(img) {
   }
 }
 
-// Кнопка «В корзину» или степпер количества — для карточек каталога
 function buyControlsHtml(productId, qty = 0) {
   if (qty <= 0) {
     return `<button type="button" class="btn btn-primary btn-add" data-id="${productId}">В корзину</button>`;
@@ -84,6 +81,21 @@ function buyControlsHtml(productId, qty = 0) {
       <span class="qty-value">${qty}</span>
       <button type="button" class="qty-btn" data-action="card-inc" data-id="${productId}" aria-label="Увеличить">+</button>
     </div>`;
+}
+
+// ---------- Безопасность: хэширование паролей (Web Crypto, SHA-256 + соль) ----------
+// Пароли никогда не хранятся в открытом виде. В сессии (currentUser)
+// хранятся только имя и email — никаких паролей, карт и документов.
+
+function randomSalt() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function hashPassword(password, salt) {
+  const data = new TextEncoder().encode(`${salt}:${password}`);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 // ---------- Текущий пользователь ----------
@@ -103,7 +115,6 @@ function isLoggedIn() {
   return Boolean(getStoredUser());
 }
 
-// Гейт: без входа покупки недоступны
 function requireAuth(message = 'Войдите, чтобы продолжить') {
   if (isLoggedIn()) return true;
   showToast(message, 'error');
@@ -118,8 +129,158 @@ function userStorageKey(prefix) {
   return user ? `${prefix}_${user.email.toLowerCase()}` : null;
 }
 
-// ---------- Банковские карты пользователя ----------
-// Учебная имитация: полный номер и CVC НЕ сохраняются.
+// ---------- Избранное (Wishlist) ----------
+
+function loadFavorites() {
+  const key = userStorageKey('novastore_favorites');
+  if (!key) return [];
+  try {
+    return JSON.parse(localStorage.getItem(key)) || [];
+  } catch {
+    return [];
+  }
+}
+
+function saveFavorites(ids) {
+  const key = userStorageKey('novastore_favorites');
+  if (key) localStorage.setItem(key, JSON.stringify(ids));
+}
+
+function isFavorite(id) {
+  return loadFavorites().includes(id);
+}
+
+function toggleFavorite(id) {
+  let favorites = loadFavorites();
+  const added = !favorites.includes(id);
+  favorites = added ? [...favorites, id] : favorites.filter((f) => f !== id);
+  saveFavorites(favorites);
+  updateFavIcon();
+  return added;
+}
+
+function updateFavIcon() {
+  const count = isLoggedIn() ? loadFavorites().length : 0;
+  document.querySelectorAll('.fav-badge').forEach((badge) => {
+    badge.textContent = count;
+    badge.classList.toggle('hidden', count === 0);
+  });
+}
+
+// ---------- Сравнение товаров ----------
+
+const COMPARE_LIMIT = 4;
+
+function loadCompare() {
+  try {
+    return JSON.parse(localStorage.getItem('novastore_compare')) || [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCompare(ids) {
+  localStorage.setItem('novastore_compare', JSON.stringify(ids));
+}
+
+function inCompare(id) {
+  return loadCompare().includes(id);
+}
+
+function toggleCompare(id) {
+  let list = loadCompare();
+  if (list.includes(id)) {
+    list = list.filter((c) => c !== id);
+    saveCompare(list);
+    return { added: false };
+  }
+  if (list.length >= COMPARE_LIMIT) {
+    return { added: false, full: true };
+  }
+  saveCompare([...list, id]);
+  return { added: true };
+}
+
+// Глобальные клики по сердечку и весам на карточках
+document.addEventListener('click', (e) => {
+  const favBtn = e.target.closest('[data-fav]');
+  const cmpBtn = e.target.closest('[data-cmp]');
+  if (!favBtn && !cmpBtn) return;
+  e.preventDefault();
+  e.stopPropagation();
+
+  if (favBtn) {
+    if (!requireAuth('Войдите, чтобы добавлять в избранное')) return;
+    const added = toggleFavorite(Number(favBtn.dataset.fav));
+    favBtn.classList.toggle('active', added);
+    showToast(added ? 'Добавлено в избранное' : 'Удалено из избранного', added ? 'success' : 'info');
+    if (typeof window.__onFavoritesChanged === 'function') window.__onFavoritesChanged();
+  }
+
+  if (cmpBtn) {
+    const result = toggleCompare(Number(cmpBtn.dataset.cmp));
+    if (result.full) {
+      showToast(`В сравнении максимум ${COMPARE_LIMIT} товара`, 'error');
+      return;
+    }
+    cmpBtn.classList.toggle('active', result.added);
+    showToast(
+      result.added ? 'Добавлено к сравнению — откройте «Сравнение» в меню' : 'Убрано из сравнения',
+      result.added ? 'success' : 'info'
+    );
+    if (typeof window.__onCompareChanged === 'function') window.__onCompareChanged();
+  }
+});
+
+// ---------- Купоны и промокоды ----------
+
+const COUPONS = {
+  NOVA10: { type: 'percent', value: 10, min: 0, label: '−10% на всё' },
+  SALE20: { type: 'percent', value: 20, min: 50, label: '−20% при заказе от $50' },
+  FIRST5: { type: 'fixed', value: 5, min: 20, label: '−$5 при заказе от $20' },
+};
+
+function validateCoupon(code, total) {
+  const coupon = COUPONS[code.trim().toUpperCase()];
+  if (!coupon) return { error: 'Такого промокода нет' };
+  if (total < coupon.min) return { error: `Промокод действует от $${coupon.min}` };
+  const amount = coupon.type === 'percent' ? (total * coupon.value) / 100 : coupon.value;
+  return { code: code.trim().toUpperCase(), amount: Math.min(amount, total), label: coupon.label };
+}
+
+// ---------- Мок платёжного шлюза ----------
+// Имитация реальной интеграции: интент → подтверждение, тестовая карта
+// с last4 = 0002 всегда отклоняется (как в песочницах платёжных систем).
+
+const PaymentGateway = {
+  _delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  },
+
+  async createIntent(amountUsd) {
+    await this._delay(500);
+    return {
+      intentId: `pi_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+      amount: amountUsd,
+      currency: 'USD',
+      status: 'requires_confirmation',
+    };
+  },
+
+  async confirm(intent, card) {
+    await this._delay(1500);
+    if (card.last4 === '0002') {
+      return { status: 'declined', error: 'Платёж отклонён банком: недостаточно средств' };
+    }
+    return {
+      status: 'succeeded',
+      receiptId: `re_${Date.now().toString(36)}`,
+      intentId: intent.intentId,
+    };
+  },
+};
+
+// ---------- Банковские карты (хранятся только бренд, last4, срок) ----------
 
 function loadCards() {
   const key = userStorageKey('novastore_cards');
@@ -219,7 +380,7 @@ function attachCardInputMasks(numberInput, expInput, cvcInput) {
   });
 }
 
-// ---------- Заказы пользователя ----------
+// ---------- Заказы ----------
 
 function loadOrders() {
   const key = userStorageKey('novastore_orders');
@@ -236,7 +397,7 @@ function saveOrders(orders) {
   if (key) localStorage.setItem(key, JSON.stringify(orders));
 }
 
-function createOrder(cart, card) {
+function createOrder(cart, card, extras = {}) {
   const order = {
     id: `NS-${Date.now().toString().slice(-8)}`,
     date: new Date().toISOString(),
@@ -247,7 +408,14 @@ function createOrder(cart, card) {
       image: item.product.image,
       quantity: item.quantity,
     })),
-    total: cart.getTotal(),
+    subtotal: cart.getTotal(),
+    coupon: extras.coupon || null,
+    discountAmount: extras.discountAmount || 0,
+    deliveryFee: extras.deliveryFee || 0,
+    deliveryMethod: extras.deliveryMethod || null,
+    address: extras.address || null,
+    total: extras.finalTotal !== undefined ? extras.finalTotal : cart.getTotal(),
+    receiptId: extras.receiptId || null,
     cardLast4: card.last4,
     cardBrand: card.brand,
     status: 'Оплачен',
@@ -258,9 +426,59 @@ function createOrder(cart, card) {
   return order;
 }
 
+// ---------- Отзывы + ИИ-модерация ----------
+
+function loadAllReviews() {
+  try {
+    return JSON.parse(localStorage.getItem('novastore_reviews')) || {};
+  } catch {
+    return {};
+  }
+}
+
+function loadReviews(productId) {
+  return loadAllReviews()[productId] || [];
+}
+
+function saveReview(productId, review) {
+  const all = loadAllReviews();
+  if (!all[productId]) all[productId] = [];
+  all[productId].unshift(review);
+  localStorage.setItem('novastore_reviews', JSON.stringify(all));
+}
+
+// ИИ-модерация отзывов: эвристический фильтр спама, ссылок,
+// капса и оскорблений — отзыв публикуется только после проверки.
+function aiModerateReview(text) {
+  const reasons = [];
+  const lower = text.toLowerCase();
+
+  if (text.trim().length < 10) reasons.push('отзыв слишком короткий');
+  if (/(https?:\/\/|www\.|t\.me\/)/i.test(text)) reasons.push('ссылки в отзывах запрещены');
+
+  const letters = text.replace(/[^a-zа-яё]/gi, '');
+  const upper = text.replace(/[^A-ZА-ЯЁ]/g, '');
+  if (letters.length > 10 && upper.length / letters.length > 0.6) {
+    reasons.push('текст написан сплошным капсом');
+  }
+
+  const spamWords = ['заработок', 'крипта', 'казино', 'пиши в телеграм', 'whatsapp', 'дешевле тут', 'переходи по'];
+  if (spamWords.some((w) => lower.includes(w))) reasons.push('похоже на спам или рекламу');
+
+  const insults = ['дурак', 'идиот', 'лох', 'мошенник', 'кидалово'];
+  if (insults.some((w) => lower.includes(w))) reasons.push('оскорбительная или бездоказательная лексика');
+
+  return { ok: reasons.length === 0, reasons };
+}
+
+function starsHtml(rate) {
+  const full = Math.max(0, Math.min(5, Math.round(rate)));
+  return '★'.repeat(full) + '☆'.repeat(5 - full);
+}
+
 // ---------- Кабинет продавца ----------
-// Профиль продавца привязан к покупателю (email), товары продавцов — общие
-// для всего «маркетплейса» (один ключ LocalStorage).
+// Безопасность: полный ИИН/БИН НЕ хранится — после проверки контрольного
+// разряда сохраняется только маскированная версия.
 
 function getSellerProfile() {
   const key = userStorageKey('novastore_seller');
@@ -289,9 +507,6 @@ function saveSellerProducts(products) {
   localStorage.setItem('novastore_seller_products', JSON.stringify(products));
 }
 
-// Проверка ИИН/БИН (Казахстан): 12 цифр + контрольный разряд.
-// Алгоритм: свёртка по весам 1..11 (mod 11); если результат 10 —
-// повторная свёртка по весам 3,4,…,11,1,2.
 function validateIdNumber(value) {
   if (!/^\d{12}$/.test(value)) return false;
   const d = value.split('').map(Number);
@@ -306,7 +521,11 @@ function validateIdNumber(value) {
   return control === d[11];
 }
 
-// ---------- Количество товаров в корзине ----------
+function maskIdNumber(id) {
+  return `${id.slice(0, 4)} **** ${id.slice(-4)}`;
+}
+
+// ---------- Корзина: счётчик ----------
 
 function getCartCount() {
   try {
@@ -318,19 +537,19 @@ function getCartCount() {
 }
 
 function updateCartIcon(animate = false) {
-  const badge = document.getElementById('cartBadge');
-  if (!badge) return;
   const count = getCartCount();
-  badge.textContent = count;
-  badge.classList.toggle('hidden', count === 0);
-  if (animate && count > 0) {
-    badge.classList.remove('bounce');
-    void badge.offsetWidth;
-    badge.classList.add('bounce');
-  }
+  document.querySelectorAll('.cart-count-badge').forEach((badge) => {
+    badge.textContent = count;
+    badge.classList.toggle('hidden', count === 0);
+    if (animate && count > 0) {
+      badge.classList.remove('bounce');
+      void badge.offsetWidth;
+      badge.classList.add('bounce');
+    }
+  });
 }
 
-// ---------- Шапка (стиль маркетплейса: топ-бар, поиск, иконки) ----------
+// ---------- Шапка ----------
 
 function renderHeader() {
   const root = document.getElementById('app-header');
@@ -375,6 +594,7 @@ function renderHeader() {
           </span>
           <nav class="header-top-links">
             <a href="index.html#deals">Акции</a>
+            <a href="compare.html">Сравнение</a>
             <a href="seller.html">Продавать на NOVA</a>
             <a href="profile.html">Мои заказы</a>
           </nav>
@@ -395,20 +615,29 @@ function renderHeader() {
 
         <nav class="nav" id="mainNav">
           <a href="index.html" class="${page === 'index.html' || page === '' ? 'active' : ''}">Каталог</a>
+          <a href="favorites.html" class="${page === 'favorites.html' ? 'active' : ''}">Избранное</a>
+          <a href="compare.html" class="${page === 'compare.html' ? 'active' : ''}">Сравнение</a>
           <a href="cart.html" class="${page === 'cart.html' ? 'active' : ''}">Корзина</a>
           ${navAuthPart}
         </nav>
 
         <div class="header-actions">
           ${profileIcon}
-          <a href="cart.html" class="cart-icon-link header-icon-link" aria-label="Корзина">
+          <a href="favorites.html" class="header-icon-link" aria-label="Избранное">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+            </svg>
+            <span class="header-icon-label">Избранное</span>
+            <span class="cart-badge fav-badge hidden">0</span>
+          </a>
+          <a href="cart.html" class="header-icon-link" aria-label="Корзина">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <circle cx="9" cy="21" r="1"></circle>
               <circle cx="20" cy="21" r="1"></circle>
               <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
             </svg>
             <span class="header-icon-label">Корзина</span>
-            <span class="cart-badge hidden" id="cartBadge">0</span>
+            <span class="cart-badge cart-count-badge hidden">0</span>
           </a>
           <button type="button" class="hamburger" id="hamburgerBtn" aria-label="Меню" aria-expanded="false">
             <span></span><span></span><span></span>
@@ -438,18 +667,18 @@ function renderHeader() {
     logoutBtn.addEventListener('click', () => {
       localStorage.removeItem('novastore_current_user');
       showToast('Вы вышли из аккаунта', 'info');
-      const protectedPages = ['profile.html', 'seller.html'];
+      const protectedPages = ['profile.html', 'seller.html', 'favorites.html'];
       if (protectedPages.includes(page)) {
         setTimeout(() => { window.location.href = 'index.html'; }, 600);
       } else {
         renderHeader();
+        renderBottomNav();
         updateCartIcon();
+        updateFavIcon();
       }
     });
   }
 
-  // Поиск из шапки: на главной фильтрует каталог напрямую
-  // (catalog.js выставляет window.__onCatalogSearch), с других страниц — редирект
   const searchForm = document.getElementById('headerSearchForm');
   const searchInput = document.getElementById('headerSearchInput');
 
@@ -476,9 +705,45 @@ function renderHeader() {
   );
 
   updateCartIcon();
+  updateFavIcon();
 }
 
-// ---------- Toast-уведомления ----------
+// ---------- Нижняя мобильная навигация (как у маркетплейсов) ----------
+
+function renderBottomNav() {
+  let nav = document.getElementById('bottomNav');
+  if (nav) nav.remove();
+
+  const page = window.location.pathname.split('/').pop() || 'index.html';
+  nav = document.createElement('nav');
+  nav.id = 'bottomNav';
+  nav.className = 'bottom-nav';
+  nav.innerHTML = `
+    <a href="index.html" class="bottom-nav-item ${page === 'index.html' || page === '' ? 'active' : ''}">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+      <span>Главная</span>
+    </a>
+    <a href="favorites.html" class="bottom-nav-item ${page === 'favorites.html' ? 'active' : ''}">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+      <span>Избранное</span>
+      <span class="cart-badge fav-badge hidden">0</span>
+    </a>
+    <a href="cart.html" class="bottom-nav-item ${page === 'cart.html' ? 'active' : ''}">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+      <span>Корзина</span>
+      <span class="cart-badge cart-count-badge hidden">0</span>
+    </a>
+    <a href="profile.html" class="bottom-nav-item ${page === 'profile.html' ? 'active' : ''}">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+      <span>Профиль</span>
+    </a>
+  `;
+  document.body.appendChild(nav);
+  updateCartIcon();
+  updateFavIcon();
+}
+
+// ---------- Toast ----------
 
 function showToast(message, type = 'info') {
   let container = document.querySelector('.toast-container');
@@ -500,7 +765,7 @@ function showToast(message, type = 'info') {
   }, 3000);
 }
 
-// ---------- Ripple-эффект ----------
+// ---------- Ripple ----------
 
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.btn, .filter-pill, .auth-tab');
@@ -516,7 +781,7 @@ document.addEventListener('click', (e) => {
   setTimeout(() => circle.remove(), 600);
 });
 
-// ---------- Reveal-анимация ----------
+// ---------- Reveal ----------
 
 const revealObserver = 'IntersectionObserver' in window
   ? new IntersectionObserver(
@@ -553,4 +818,5 @@ function observeReveal(container) {
 
 document.addEventListener('DOMContentLoaded', () => {
   renderHeader();
+  renderBottomNav();
 });
