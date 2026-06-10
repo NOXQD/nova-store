@@ -62,7 +62,7 @@ const API = {
   async getProducts() {
     const [fakeStore, dummy] = await Promise.allSettled([
       this._fetchJson(`${this.fakeStoreUrl}/products`),
-      this._fetchJson(`${this.dummyJsonUrl}/products?limit=100`),
+      this._fetchJson(`${this.dummyJsonUrl}/products?limit=0`),
     ]);
 
     const products = [];
@@ -79,7 +79,25 @@ const API = {
     }
 
     products.push(...this._sellerProducts());
-    return products;
+    return this._promoteFeatured(products);
+  },
+
+  // Витрина: первые 12 позиций каталога «Все товары» — техника и парфюмерия,
+  // остальные следом в исходном порядке
+  _promoteFeatured(products) {
+    const featuredCategories = ['smartphones', 'laptops', 'tablets', 'fragrances'];
+    const perCategory = 3;
+
+    const featured = [];
+    for (const category of featuredCategories) {
+      featured.push(
+        ...products.filter((p) => p.category === category).slice(0, perCategory)
+      );
+    }
+
+    const featuredIds = new Set(featured.map((p) => p.id));
+    const rest = products.filter((p) => !featuredIds.has(p.id));
+    return [...featured, ...rest];
   },
 
   // Один товар по id — источник определяется диапазоном id
