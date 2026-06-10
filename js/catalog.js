@@ -1,21 +1,28 @@
 // === CATALOG.JS ===
-// Логика главной страницы: skeleton → загрузка API → фильтры, поиск, сортировка.
+// Главная: карусель акций, каталог из двух API + товаров продавцов,
+// фильтры, поиск из шапки, сортировка, степпер количества прямо в карточке.
 
 (() => {
   const grid = document.getElementById('productsGrid');
   const filtersBox = document.getElementById('categoryFilters');
   const filterIndicator = document.getElementById('filterIndicator');
-  const searchInput = document.getElementById('searchInput');
   const sortSelect = document.getElementById('sortSelect');
   const emptyBlock = document.getElementById('catalogEmpty');
   const errorBlock = document.getElementById('catalogError');
   const retryBtn = document.getElementById('retryBtn');
 
+  const carousel = document.getElementById('heroCarousel');
+  const carouselTrack = document.getElementById('carouselTrack');
+  const carouselDots = document.getElementById('carouselDots');
+  const carouselPrev = document.getElementById('carouselPrev');
+  const carouselNext = document.getElementById('carouselNext');
+  const carouselSkeleton = document.getElementById('carouselSkeleton');
+
   const cart = Cart.load();
 
   let allProducts = [];
   let currentCategory = 'all';
-  let searchQuery = '';
+  let searchQuery = new URLSearchParams(window.location.search).get('search') || '';
   let sortMode = 'default';
 
   // ---------- Skeleton ----------
@@ -34,6 +41,81 @@
     `).join('');
   }
 
+  // ---------- Карусель акций ----------
+
+  let slideIndex = 0;
+  let slideCount = 0;
+  let autoplayTimer = null;
+
+  function slideHtml(product) {
+    const title = escapeHtml(product.title);
+    return `
+      <div class="carousel-slide">
+        <div class="slide-info">
+          <span class="slide-badge">Акция · −${product.discount}%</span>
+          <h2 class="slide-title">${title}</h2>
+          <div class="slide-prices">
+            <span class="slide-price">$${product.price.toFixed(2)}</span>
+            <s class="slide-old-price">$${product.oldPrice.toFixed(2)}</s>
+          </div>
+          <a href="product.html?id=${product.id}" class="btn btn-primary">Смотреть товар</a>
+        </div>
+        <a href="product.html?id=${product.id}" class="slide-photo" aria-label="${title}">
+          <img src="${product.image}" alt="${title}" loading="eager" width="280" height="280" onerror="handleImgError(this)">
+        </a>
+      </div>
+    `;
+  }
+
+  function goToSlide(i) {
+    slideIndex = (i + slideCount) % slideCount;
+    carouselTrack.style.transform = `translateX(-${slideIndex * 100}%)`;
+    carouselDots.querySelectorAll('.carousel-dot').forEach((dot, n) => {
+      dot.classList.toggle('active', n === slideIndex);
+    });
+  }
+
+  function startAutoplay() {
+    stopAutoplay();
+    autoplayTimer = setInterval(() => goToSlide(slideIndex + 1), 4500);
+  }
+
+  function stopAutoplay() {
+    if (autoplayTimer) clearInterval(autoplayTimer);
+  }
+
+  function renderHeroCarousel() {
+    const deals = allProducts
+      .filter((p) => p.discount >= 10 && p.oldPrice)
+      .sort((a, b) => b.discount - a.discount)
+      .slice(0, 6);
+
+    carouselSkeleton.hidden = true;
+    if (deals.length === 0) {
+      carousel.hidden = true;
+      return;
+    }
+
+    slideCount = deals.length;
+    carouselTrack.innerHTML = deals.map(slideHtml).join('');
+    carouselDots.innerHTML = deals
+      .map((_, i) => `<button type="button" class="carousel-dot${i === 0 ? ' active' : ''}" data-slide="${i}" aria-label="Слайд ${i + 1}"></button>`)
+      .join('');
+
+    carousel.hidden = false;
+    goToSlide(0);
+    startAutoplay();
+
+    carouselPrev.addEventListener('click', () => { goToSlide(slideIndex - 1); startAutoplay(); });
+    carouselNext.addEventListener('click', () => { goToSlide(slideIndex + 1); startAutoplay(); });
+    carouselDots.addEventListener('click', (e) => {
+      const dot = e.target.closest('.carousel-dot');
+      if (dot) { goToSlide(Number(dot.dataset.slide)); startAutoplay(); }
+    });
+    carousel.addEventListener('mouseenter', stopAutoplay);
+    carousel.addEventListener('mouseleave', startAutoplay);
+  }
+
   // ---------- Фильтрация / сортировка ----------
 
   function getVisibleProducts() {
@@ -48,11 +130,15 @@
       list = list.filter(
         (p) =>
           p.title.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q)
+          p.description.toLowerCase().includes(q) ||
+          getCategoryLabel(p.category).toLowerCase().includes(q)
       );
     }
 
     switch (sortMode) {
+      case 'discount':
+        list.sort((a, b) => b.discount - a.discount);
+        break;
       case 'price-asc':
         list.sort((a, b) => a.price - b.price);
         break;
@@ -74,14 +160,13 @@
 
   function renderCatalog() {
     const products = getVisibleProducts();
-
     emptyBlock.hidden = products.length > 0;
-    grid.innerHTML = products.map((p, i) => p.renderCard(i)).join('');
+    grid.innerHTML = products
+      .map((p, i) => p.renderCard(i, cart.getQuantity(p.id)))
+      .join('');
     observeReveal(grid);
-    bindAddButtons();
   }
 
-  // Fade-переход при смене фильтра/поиска
   function renderWithFade() {
     grid.classList.add('fading');
     setTimeout(() => {
@@ -90,23 +175,38 @@
     }, 250);
   }
 
-  function bindAddButtons() {
-    grid.querySelectorAll('.btn-add').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (!requireAuth('Войдите, чтобы добавлять товары в корзину')) return;
-        const id = Number(btn.dataset.id);
-        const product = allProducts.find((p) => p.id === id);
-        if (!product) return;
-        cart.addProduct(product);
-        updateCartIcon(true);
-        btn.classList.remove('pulse-once');
-        void btn.offsetWidth;
-        btn.classList.add('pulse-once');
-        showToast('Товар добавлен в корзину', 'success');
-      });
-    });
+  // ---------- Корзина из карточки: кнопка → степпер +/- ----------
+
+  function refreshCardControls(productId) {
+    const box = grid.querySelector(`.card-buy[data-id="${productId}"]`);
+    if (box) box.innerHTML = buyControlsHtml(productId, cart.getQuantity(productId));
   }
+
+  grid.addEventListener('click', (e) => {
+    const addBtn = e.target.closest('.btn-add');
+    const qtyBtn = e.target.closest('[data-action="card-inc"], [data-action="card-dec"]');
+    if (!addBtn && !qtyBtn) return;
+    e.preventDefault();
+
+    if (!requireAuth('Войдите, чтобы добавлять товары в корзину')) return;
+
+    const id = Number((addBtn || qtyBtn).dataset.id);
+    const product = allProducts.find((p) => p.id === id);
+    if (!product) return;
+
+    if (addBtn) {
+      cart.addProduct(product);
+      showToast('Товар добавлен в корзину', 'success');
+    } else if (qtyBtn.dataset.action === 'card-inc') {
+      cart.updateQuantity(id, 1);
+    } else {
+      cart.updateQuantity(id, -1);
+      if (cart.getQuantity(id) === 0) showToast('Товар удалён из корзины', 'info');
+    }
+
+    refreshCardControls(id);
+    updateCartIcon(true);
+  });
 
   // ---------- Фильтры категорий ----------
 
@@ -143,26 +243,19 @@
     );
   }
 
-  // ---------- Поиск (debounce 300ms) ----------
+  // ---------- Поиск (вызывается из строки поиска в шапке) ----------
 
-  function setupSearch() {
-    searchInput.addEventListener(
-      'input',
-      debounce(() => {
-        searchQuery = searchInput.value.trim();
-        renderWithFade();
-      }, 300)
-    );
-  }
+  window.__onCatalogSearch = (query) => {
+    searchQuery = query;
+    renderWithFade();
+  };
 
   // ---------- Сортировка ----------
 
-  function setupSort() {
-    sortSelect.addEventListener('change', () => {
-      sortMode = sortSelect.value;
-      renderWithFade();
-    });
-  }
+  sortSelect.addEventListener('change', () => {
+    sortMode = sortSelect.value;
+    renderWithFade();
+  });
 
   // ---------- Инициализация ----------
 
@@ -172,24 +265,23 @@
     renderSkeletons(8);
 
     try {
-      const [products, categories] = await Promise.all([
-        API.getProducts(),
-        API.getCategories(),
-      ]);
-      allProducts = products;
+      allProducts = await API.getProducts();
+
       if (!filtersBox.querySelector('[data-category]:not([data-category="all"])')) {
+        const categories = [...new Set(allProducts.map((p) => p.category))];
         setupCategoryFilter(categories);
       }
+
+      renderHeroCarousel();
       renderCatalog();
     } catch {
       grid.innerHTML = '';
+      carouselSkeleton.hidden = true;
       errorBlock.hidden = false;
     }
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    setupSearch();
-    setupSort();
     retryBtn.addEventListener('click', init);
     init();
   });

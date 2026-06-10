@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<!-- === SELLER.HTML === -->
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Кабинет продавца — NOVA STORE</title>
+  <meta name="description" content="Продавайте на NOVA STORE: регистрация продавца и управление товарами">
+  <link rel="stylesheet" href="css/style.css?v=4">
+</head>
+<body>
+
+  <div id="app-header"></div>
+
+  <main>
+    <div class="container seller-page">
+      <h1 class="page-title">Кабинет продавца</h1>
+
+      <!-- Гейт: только для вошедших -->
+      <div class="auth-gate" id="sellerAuthGate" hidden>
+        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+          <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <h2>Войдите, чтобы стать продавцом</h2>
+        <p>Кабинет продавца доступен только зарегистрированным пользователям NOVA STORE</p>
+        <div class="auth-gate-actions">
+          <a href="auth.html" class="btn btn-primary">Войти или зарегистрироваться</a>
+          <a href="index.html" class="btn btn-ghost">Смотреть каталог</a>
+        </div>
+      </div>
+
+      <!-- Онбординг: регистрация продавца -->
+      <div class="seller-onboarding" id="sellerOnboarding" hidden>
+        <div class="seller-hero glass-card">
+          <h2>Продавайте на NOVA STORE</h2>
+          <p>Более 120 000 покупателей каждый день. Подключение за 5 минут — нужны только данные вашего бизнеса.</p>
+          <ul class="seller-benefits">
+            <li>Комиссия от 5% — ниже, чем у конкурентов</li>
+            <li>Выплаты на расчётный счёт каждую неделю</li>
+            <li>Доставка и хранение — на нашей стороне</li>
+          </ul>
+        </div>
+
+        <form class="seller-form glass-card" id="sellerForm" novalidate>
+          <h3>Регистрация продавца</h3>
+          <p class="modal-note">По законодательству РК торговать на маркетплейсе могут только зарегистрированные субъекты предпринимательства. Учебный проект: данные сохраняются только в вашем браузере.</p>
+
+          <div class="form-field form-field-select">
+            <select id="bizType" required>
+              <option value="ip" selected>ИП — индивидуальный предприниматель</option>
+              <option value="too">ТОО — товарищество с ограниченной ответственностью</option>
+              <option value="self">Самозанятый (плательщик ЕСП)</option>
+            </select>
+            <label for="bizType" class="select-label">Форма регистрации бизнеса</label>
+          </div>
+
+          <div class="form-field">
+            <input type="text" id="bizId" placeholder=" " inputmode="numeric" maxlength="12" required>
+            <label for="bizId" id="bizIdLabel">ИИН (12 цифр)</label>
+            <span class="field-error" id="bizIdError"></span>
+          </div>
+
+          <div class="form-field">
+            <input type="text" id="shopName" placeholder=" " maxlength="40" required>
+            <label for="shopName">Название магазина</label>
+            <span class="field-error" id="shopNameError"></span>
+          </div>
+
+          <div class="form-field">
+            <input type="tel" id="bizPhone" placeholder=" " inputmode="tel" maxlength="18" required>
+            <label for="bizPhone">Телефон (+7 ...)</label>
+            <span class="field-error" id="bizPhoneError"></span>
+          </div>
+
+          <label class="agree-row">
+            <input type="checkbox" id="agreeOffer">
+            <span>Принимаю <a href="#" onclick="return false">оферту для продавцов</a> и правила площадки</span>
+          </label>
+          <label class="agree-row">
+            <input type="checkbox" id="agreeData">
+            <span>Согласен на обработку персональных данных</span>
+          </label>
+          <span class="field-error" id="agreeError"></span>
+
+          <button type="submit" class="btn btn-primary btn-block">
+            <span class="btn-label">Стать продавцом</span>
+            <span class="btn-spinner" aria-hidden="true"></span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Дашборд продавца -->
+      <div class="seller-dashboard" id="sellerDashboard" hidden>
+
+        <section class="profile-section glass-card">
+          <div class="seller-head">
+            <h2 id="dashShopName"></h2>
+            <span class="order-status">Активен</span>
+          </div>
+          <div class="seller-meta" id="dashMeta"></div>
+        </section>
+
+        <section class="profile-section glass-card">
+          <h2>Добавить товар</h2>
+          <form id="productForm" novalidate>
+            <div class="form-field">
+              <input type="text" id="pTitle" placeholder=" " maxlength="80" required>
+              <label for="pTitle">Название товара</label>
+              <span class="field-error" id="pTitleError"></span>
+            </div>
+            <div class="card-form-row">
+              <div class="form-field">
+                <input type="number" id="pPrice" placeholder=" " min="0.1" step="0.01" required>
+                <label for="pPrice">Цена, $</label>
+                <span class="field-error" id="pPriceError"></span>
+              </div>
+              <div class="form-field form-field-select">
+                <select id="pCategory" required>
+                  <option value="electronics">Электроника</option>
+                  <option value="smartphones">Смартфоны</option>
+                  <option value="laptops">Ноутбуки</option>
+                  <option value="men's clothing">Мужская одежда</option>
+                  <option value="women's clothing">Женская одежда</option>
+                  <option value="jewelery">Украшения</option>
+                  <option value="beauty">Красота</option>
+                  <option value="furniture">Мебель</option>
+                  <option value="groceries">Продукты</option>
+                  <option value="sports-accessories">Спорт</option>
+                </select>
+                <label for="pCategory" class="select-label">Категория</label>
+              </div>
+            </div>
+            <div class="form-field">
+              <input type="url" id="pImage" placeholder=" " required>
+              <label for="pImage">Ссылка на фото (https://...)</label>
+              <span class="field-error" id="pImageError"></span>
+            </div>
+            <div class="form-field">
+              <input type="text" id="pDescription" placeholder=" " maxlength="300" required>
+              <label for="pDescription">Краткое описание</label>
+              <span class="field-error" id="pDescriptionError"></span>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Опубликовать товар</button>
+          </form>
+        </section>
+
+        <section class="profile-section glass-card seller-products-section">
+          <h2>Мои товары</h2>
+          <div class="seller-products" id="sellerProductsList"></div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>© 2026 NOVA STORE. Учебный проект — данные из <a href="https://fakestoreapi.com" target="_blank" rel="noopener">Fake Store API</a> и <a href="https://dummyjson.com" target="_blank" rel="noopener">DummyJSON</a></p>
+    </div>
+  </footer>
+
+  <script src="js/models.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/seller.js"></script>
+</body>
+</html>

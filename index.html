@@ -5,21 +5,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NOVA STORE — Каталог товаров</title>
-  <meta name="description" content="Учебный интернет-магазин на чистом HTML/CSS/JS с Fake Store API">
-  <link rel="stylesheet" href="css/style.css?v=3">
+  <meta name="description" content="Маркетплейс NOVA STORE: электроника, одежда, косметика и товары продавцов">
+  <link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
 
   <div id="app-header"></div>
 
   <main>
-    <!-- Hero -->
-    <section class="hero">
-      <div class="container">
-        <h1 class="hero-title">Вещи, которые вы полюбите.<br><span class="gradient-text">По ценам, которые удивят.</span></h1>
-        <p class="hero-subtitle">Электроника, украшения и одежда — всё в одном месте. Доставка по всему миру.</p>
+    <!-- Карусель акций и скидок -->
+    <section class="container" id="deals">
+      <div class="hero-carousel" id="heroCarousel" hidden>
+        <div class="carousel-track" id="carouselTrack"></div>
+        <button type="button" class="carousel-arrow carousel-prev" id="carouselPrev" aria-label="Назад">‹</button>
+        <button type="button" class="carousel-arrow carousel-next" id="carouselNext" aria-label="Вперёд">›</button>
+        <div class="carousel-dots" id="carouselDots"></div>
       </div>
-      <div class="hero-glow" aria-hidden="true"></div>
+      <div class="hero-carousel-skeleton skeleton" id="carouselSkeleton"></div>
     </section>
 
     <!-- Каталог -->
@@ -34,16 +36,9 @@
         </div>
 
         <div class="search-sort">
-          <div class="search-box">
-            <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input type="search" id="searchInput" class="search-input" placeholder="Поиск товаров..." autocomplete="off" aria-label="Поиск товаров">
-          </div>
-
           <select id="sortSelect" class="sort-select" aria-label="Сортировка">
             <option value="default">По умолчанию</option>
+            <option value="discount">По размеру скидки</option>
             <option value="price-asc">Сначала дешевле</option>
             <option value="price-desc">Сначала дороже</option>
             <option value="name-asc">Название: А → Я</option>
@@ -79,7 +74,7 @@
 
   <footer class="site-footer">
     <div class="container">
-      <p>© 2026 NOVA STORE. Учебный проект — данные из <a href="https://fakestoreapi.com" target="_blank" rel="noopener">Fake Store API</a></p>
+      <p>© 2026 NOVA STORE. Учебный проект — данные из <a href="https://fakestoreapi.com" target="_blank" rel="noopener">Fake Store API</a> и <a href="https://dummyjson.com" target="_blank" rel="noopener">DummyJSON</a></p>
     </div>
   </footer>
 

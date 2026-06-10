@@ -29,6 +29,16 @@
     breadcrumbCurrent.textContent = product.title;
     document.title = `${product.title} — NOVA STORE`;
 
+    const priceBlock = product.oldPrice && product.oldPrice > product.price
+      ? `<p class="product-price">$${product.price.toFixed(2)}
+           <s class="price-old">$${product.oldPrice.toFixed(2)}</s>
+           <span class="discount-badge discount-inline">−${product.discount}%</span></p>`
+      : `<p class="product-price">$${product.price.toFixed(2)}</p>`;
+
+    const shopLine = product.shopName
+      ? `<p class="card-shop">Продавец: ${escapeHtml(product.shopName)}</p>`
+      : '';
+
     content.innerHTML = `
       <div class="product-photo" id="productPhoto">
         <img
@@ -48,7 +58,8 @@
           <span class="rating-value">${rate}</span>
           <span class="rating-count">(${count} оценок)</span>
         </div>
-        <p class="product-price">$${product.price.toFixed(2)}</p>
+        ${priceBlock}
+        ${shopLine}
         <p class="product-description">${escapeHtml(product.description)}</p>
 
         <div class="product-actions">

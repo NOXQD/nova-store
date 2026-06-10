@@ -14,14 +14,17 @@ class User {
 }
 
 class Product {
-  constructor(id, title, price, description, image, category, rating = null) {
+  constructor(id, title, price, description, image, category, rating = null, extra = {}) {
     this.id = id;
     this.title = title;
     this.price = price;
     this.description = description;
     this.image = image;
     this.category = category;
-    this.rating = rating; // { rate, count } из Fake Store API
+    this.rating = rating; // { rate, count }
+    this.oldPrice = extra.oldPrice || null;       // цена до скидки
+    this.discount = Math.round(extra.discount || 0); // процент скидки
+    this.shopName = extra.shopName || null;       // товар продавца маркетплейса
   }
 
   // Создание из сырого объекта API / LocalStorage
@@ -33,7 +36,8 @@ class Product {
       data.description,
       data.image,
       data.category,
-      data.rating || null
+      data.rating || null,
+      { oldPrice: data.oldPrice, discount: data.discount, shopName: data.shopName }
     );
   }
 
@@ -43,19 +47,35 @@ class Product {
     return '★'.repeat(full) + '☆'.repeat(5 - full);
   }
 
+  priceHtml() {
+    const current = `$${this.price.toFixed(2)}`;
+    if (this.oldPrice && this.oldPrice > this.price) {
+      return `<span class="price-new">${current}</span> <s class="price-old">$${this.oldPrice.toFixed(2)}</s>`;
+    }
+    return `<span class="price-new">${current}</span>`;
+  }
+
   // Готовая HTML-строка карточки каталога.
-  // index нужен для loading="eager" у первых 4 карточек (above the fold).
-  renderCard(index = 0) {
+  // index — для loading="eager" у первых 4 карточек (above the fold),
+  // cartQty — текущее количество в корзине (рендерит степпер вместо кнопки).
+  renderCard(index = 0, cartQty = 0) {
     const loadingAttr = index < 4 ? 'eager' : 'lazy';
-    const rate = this.rating ? this.rating.rate.toFixed(1) : '—';
+    const rate = this.rating ? Number(this.rating.rate).toFixed(1) : '—';
     const count = this.rating ? this.rating.count : 0;
     const title = escapeHtml(this.title);
     const categoryLabel = escapeHtml(getCategoryLabel(this.category));
+    const discountBadge = this.discount >= 5
+      ? `<span class="discount-badge">−${this.discount}%</span>`
+      : '';
+    const shopLine = this.shopName
+      ? `<span class="card-shop">Магазин: ${escapeHtml(this.shopName)}</span>`
+      : '';
 
     return `
       <article class="product-card reveal" data-id="${this.id}">
         <a href="product.html?id=${this.id}" aria-label="${title}">
           <div class="card-image">
+            ${discountBadge}
             <img
               src="${this.image}"
               alt="${title}"
@@ -68,14 +88,15 @@ class Product {
         <div class="card-body">
           <span class="card-category">${categoryLabel}</span>
           <h3 class="card-title"><a href="product.html?id=${this.id}">${title}</a></h3>
+          ${shopLine}
           <div class="card-rating">
             <span class="stars" aria-hidden="true">${this.getStars()}</span>
             <span class="rating-value">${rate}</span>
             <span class="rating-count">(${count})</span>
           </div>
           <div class="card-footer">
-            <span class="card-price">$${this.price.toFixed(2)}</span>
-            <button type="button" class="btn btn-primary btn-add" data-id="${this.id}">В корзину</button>
+            <span class="card-price">${this.priceHtml()}</span>
+            <div class="card-buy" data-id="${this.id}">${buyControlsHtml(this.id, cartQty)}</div>
           </div>
         </div>
       </article>
@@ -129,6 +150,11 @@ class Cart {
     }
   }
 
+  getQuantity(productId) {
+    const item = this.items.find((i) => i.product.id === productId);
+    return item ? item.quantity : 0;
+  }
+
   getTotal() {
     return this.items.reduce((sum, item) => sum + item.getTotalPrice(), 0);
   }
@@ -154,6 +180,9 @@ class Cart {
         image: item.product.image,
         category: item.product.category,
         rating: item.product.rating,
+        oldPrice: item.product.oldPrice,
+        discount: item.product.discount,
+        shopName: item.product.shopName,
       },
       quantity: item.quantity,
     }));
