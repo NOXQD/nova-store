@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<!-- === PRODUCT.HTML === -->
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Товар — NOVA STORE</title>
+  <meta name="description" content="Страница товара — учебный интернет-магазин NOVA STORE">
+  <link rel="stylesheet" href="css/style.css?v=2">
+</head>
+<body>
+
+  <div id="app-header"></div>
+
+  <main>
+    <div class="container product-page">
+      <nav class="breadcrumb" id="breadcrumb" aria-label="Хлебные крошки">
+        <a href="index.html">Каталог</a>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">Загрузка...</span>
+      </nav>
+
+      <!-- Skeleton, пока грузится API -->
+      <div class="product-layout" id="productSkeleton">
+        <div class="skeleton product-photo-skeleton"></div>
+        <div class="product-info-skeleton">
+          <div class="skeleton skeleton-line w-30"></div>
+          <div class="skeleton skeleton-line w-90 tall"></div>
+          <div class="skeleton skeleton-line w-60 tall"></div>
+          <div class="skeleton skeleton-line w-40"></div>
+          <div class="skeleton skeleton-line w-100"></div>
+          <div class="skeleton skeleton-line w-100"></div>
+          <div class="skeleton skeleton-line w-80"></div>
+          <div class="skeleton skeleton-btn wide"></div>
+        </div>
+      </div>
+
+      <!-- Контент товара (рендерится из JS) -->
+      <div class="product-layout fade-in" id="productContent" hidden></div>
+
+      <!-- Ошибка -->
+      <div class="catalog-error" id="productError" hidden>
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <h3 id="productErrorTitle">Товар не найден</h3>
+        <p id="productErrorText">Возможно, ссылка устарела или товар был удалён</p>
+        <a href="index.html" class="btn btn-primary">← Вернуться в каталог</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>© 2026 NOVA STORE. Учебный проект — данные из <a href="https://fakestoreapi.com" target="_blank" rel="noopener">Fake Store API</a></p>
+    </div>
+  </footer>
+
+  <script src="js/models.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/product.js"></script>
+</body>
+</html>

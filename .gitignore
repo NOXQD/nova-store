@@ -1,0 +1,5 @@
+# Служебные папки и файлы
+.*/
+*.log
+Thumbs.db
+desktop.ini

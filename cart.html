@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<!-- === CART.HTML === -->
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Корзина — NOVA STORE</title>
+  <meta name="description" content="Корзина — учебный интернет-магазин NOVA STORE">
+  <link rel="stylesheet" href="css/style.css?v=2">
+</head>
+<body>
+
+  <div id="app-header"></div>
+
+  <main>
+    <div class="container cart-page">
+      <h1 class="page-title">Корзина</h1>
+
+      <div class="cart-layout" id="cartLayout">
+        <div class="cart-items" id="cartItems"></div>
+
+        <aside class="cart-summary glass-card" id="cartSummary">
+          <h2>Итого</h2>
+          <div class="summary-row">
+            <span>Товаров:</span>
+            <span id="summaryCount">0</span>
+          </div>
+          <div class="summary-row summary-total">
+            <span>К оплате:</span>
+            <span id="summaryTotal">$0.00</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-block" id="checkoutBtn">Оформить заказ</button>
+          <button type="button" class="btn btn-ghost btn-block" id="clearCartBtn">Очистить корзину</button>
+        </aside>
+      </div>
+
+      <!-- Пустая корзина -->
+      <div class="cart-empty" id="cartEmpty" hidden>
+        <svg width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+          <circle cx="9" cy="21" r="1"></circle>
+          <circle cx="20" cy="21" r="1"></circle>
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+        </svg>
+        <h2>Корзина пуста</h2>
+        <p>Самое время выбрать что-нибудь интересное</p>
+        <a href="index.html" class="btn btn-primary">Перейти в каталог</a>
+      </div>
+    </div>
+  </main>
+
+  <!-- Модальное окно оформления заказа -->
+  <div class="modal-overlay" id="checkoutModal" hidden>
+    <div class="modal glass-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-step" id="modalConfirmStep">
+        <h3 id="modalTitle">Оформление заказа</h3>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="modalCancel">Отмена</button>
+          <button type="button" class="btn btn-primary" id="modalConfirm">Подтвердить заказ</button>
+        </div>
+      </div>
+      <div class="modal-step modal-success" id="modalSuccessStep" hidden>
+        <svg class="checkmark" viewBox="0 0 52 52" width="80" height="80" aria-hidden="true">
+          <circle class="checkmark-circle" cx="26" cy="26" r="24" fill="none"/>
+          <path class="checkmark-check" fill="none" d="M14 27l8 8 16-16"/>
+        </svg>
+        <h3>Заказ оформлен!</h3>
+        <p>Спасибо за покупку. Мы свяжемся с вами для подтверждения.</p>
+        <button type="button" class="btn btn-primary" id="modalClose">Отлично</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>© 2026 NOVA STORE. Учебный проект — данные из <a href="https://fakestoreapi.com" target="_blank" rel="noopener">Fake Store API</a></p>
+    </div>
+  </footer>
+
+  <script src="js/models.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/cart.js"></script>
+</body>
+</html>

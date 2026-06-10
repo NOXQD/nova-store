@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<!-- === AUTH.HTML === -->
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Вход / Регистрация — NOVA STORE</title>
+  <meta name="description" content="Вход и регистрация — учебный интернет-магазин NOVA STORE">
+  <link rel="stylesheet" href="css/style.css?v=2">
+</head>
+<body>
+
+  <div id="app-header"></div>
+
+  <main>
+    <div class="container auth-page">
+      <div class="auth-card glass-card" id="authCard">
+
+        <div class="auth-tabs" role="tablist">
+          <button type="button" class="auth-tab active" id="tabLogin" data-tab="login" role="tab" aria-selected="true">Вход</button>
+          <button type="button" class="auth-tab" id="tabRegister" data-tab="register" role="tab" aria-selected="false">Регистрация</button>
+          <span class="auth-tab-indicator" id="authTabIndicator" aria-hidden="true"></span>
+        </div>
+
+        <!-- Вход -->
+        <div class="auth-panel active" id="panelLogin" role="tabpanel">
+          <form id="loginForm" novalidate>
+            <div class="form-field">
+              <input type="email" id="loginEmail" placeholder=" " autocomplete="email" required>
+              <label for="loginEmail">Email</label>
+              <span class="field-error" id="loginEmailError"></span>
+            </div>
+            <div class="form-field">
+              <input type="password" id="loginPassword" placeholder=" " autocomplete="current-password" required>
+              <label for="loginPassword">Пароль</label>
+              <button type="button" class="toggle-password" data-target="loginPassword" aria-label="Показать пароль">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+              <span class="field-error" id="loginPasswordError"></span>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" id="loginSubmit">
+              <span class="btn-label">Войти</span>
+              <span class="btn-spinner" aria-hidden="true"></span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Регистрация -->
+        <div class="auth-panel" id="panelRegister" role="tabpanel">
+          <form id="registerForm" novalidate>
+            <div class="form-field">
+              <input type="text" id="regName" placeholder=" " autocomplete="name" required>
+              <label for="regName">Имя</label>
+              <span class="field-error" id="regNameError"></span>
+            </div>
+            <div class="form-field">
+              <input type="email" id="regEmail" placeholder=" " autocomplete="email" required>
+              <label for="regEmail">Email</label>
+              <span class="field-error" id="regEmailError"></span>
+            </div>
+            <div class="form-field">
+              <input type="password" id="regPassword" placeholder=" " autocomplete="new-password" required>
+              <label for="regPassword">Пароль (мин. 6 символов)</label>
+              <button type="button" class="toggle-password" data-target="regPassword" aria-label="Показать пароль">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+              <span class="field-error" id="regPasswordError"></span>
+            </div>
+            <div class="form-field">
+              <input type="password" id="regPasswordConfirm" placeholder=" " autocomplete="new-password" required>
+              <label for="regPasswordConfirm">Повторите пароль</label>
+              <span class="field-error" id="regPasswordConfirmError"></span>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" id="registerSubmit">
+              <span class="btn-label">Создать аккаунт</span>
+              <span class="btn-spinner" aria-hidden="true"></span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Успешная регистрация -->
+        <div class="auth-success" id="authSuccess" hidden>
+          <svg class="checkmark" viewBox="0 0 52 52" width="80" height="80" aria-hidden="true">
+            <circle class="checkmark-circle" cx="26" cy="26" r="24" fill="none"/>
+            <path class="checkmark-check" fill="none" d="M14 27l8 8 16-16"/>
+          </svg>
+          <h3>Аккаунт создан!</h3>
+          <p>Теперь вы можете войти со своими данными</p>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>© 2026 NOVA STORE. Учебный проект — данные из <a href="https://fakestoreapi.com" target="_blank" rel="noopener">Fake Store API</a></p>
+    </div>
+  </footer>
+
+  <script src="js/models.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>

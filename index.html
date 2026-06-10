@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<!-- === INDEX.HTML === -->
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NOVA STORE — Каталог товаров</title>
+  <meta name="description" content="Учебный интернет-магазин на чистом HTML/CSS/JS с Fake Store API">
+  <link rel="stylesheet" href="css/style.css?v=2">
+</head>
+<body>
+
+  <div id="app-header"></div>
+
+  <main>
+    <!-- Hero -->
+    <section class="hero">
+      <div class="container">
+        <h1 class="hero-title">Вещи, которые вы полюбите.<br><span class="gradient-text">По ценам, которые удивят.</span></h1>
+        <p class="hero-subtitle">Электроника, украшения и одежда — всё в одном месте. Доставка по всему миру.</p>
+      </div>
+      <div class="hero-glow" aria-hidden="true"></div>
+    </section>
+
+    <!-- Каталог -->
+    <section class="catalog container" id="catalog">
+      <div class="catalog-controls">
+        <div class="filters-wrap">
+          <div class="filters" id="categoryFilters">
+            <button type="button" class="filter-pill active" data-category="all">Все товары</button>
+            <span class="filter-indicator" id="filterIndicator" aria-hidden="true"></span>
+          </div>
+        </div>
+
+        <div class="search-sort">
+          <div class="search-box">
+            <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="search" id="searchInput" class="search-input" placeholder="Поиск товаров..." autocomplete="off" aria-label="Поиск товаров">
+          </div>
+
+          <select id="sortSelect" class="sort-select" aria-label="Сортировка">
+            <option value="default">По умолчанию</option>
+            <option value="price-asc">Сначала дешевле</option>
+            <option value="price-desc">Сначала дороже</option>
+            <option value="name-asc">Название: А → Я</option>
+            <option value="name-desc">Название: Я → А</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="products-grid" id="productsGrid"></div>
+
+      <div class="catalog-empty" id="catalogEmpty" hidden>
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          <line x1="8" y1="11" x2="14" y2="11"></line>
+        </svg>
+        <h3>Ничего не найдено</h3>
+        <p>Попробуйте изменить запрос или выбрать другую категорию</p>
+      </div>
+
+      <div class="catalog-error" id="catalogError" hidden>
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <h3>Не удалось загрузить товары</h3>
+        <p>Проверьте подключение к интернету и попробуйте снова</p>
+        <button type="button" class="btn btn-primary" id="retryBtn">Попробовать снова</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>© 2026 NOVA STORE. Учебный проект — данные из <a href="https://fakestoreapi.com" target="_blank" rel="noopener">Fake Store API</a></p>
+    </div>
+  </footer>
+
+  <script src="js/models.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/catalog.js"></script>
+</body>
+</html>
