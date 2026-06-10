@@ -144,9 +144,10 @@
       return false;
     }
 
-    users.push(new User(name, email, password));
+    const user = new User(name, email, password);
+    users.push(user);
     saveUsers(users);
-    return true;
+    return user;
   }
 
   registerForm.addEventListener('submit', async (e) => {
@@ -155,7 +156,7 @@
     setLoading(submitBtn, true);
     await fakeDelay();
 
-    const ok = await registerUser(
+    const user = await registerUser(
       document.getElementById('regName').value.trim(),
       document.getElementById('regEmail').value.trim(),
       document.getElementById('regPassword').value,
@@ -164,21 +165,22 @@
 
     setLoading(submitBtn, false);
 
-    if (!ok) {
+    if (!user) {
       shakeForm(registerForm);
       showToast('Проверьте правильность заполнения формы', 'error');
       return;
     }
 
-    // Success checkmark, затем переключение на вход
+    // Авто-вход после регистрации: checkmark → редирект в каталог
+    setCurrentUser(user);
     registerForm.reset();
     panelRegister.classList.remove('active');
     authSuccess.hidden = false;
-    showToast('Аккаунт успешно создан', 'success');
+    showToast(`Добро пожаловать, ${user.name}!`, 'success');
 
     setTimeout(() => {
-      switchTab('login');
-    }, 2000);
+      window.location.href = 'index.html';
+    }, 1800);
   });
 
   // ---------- Вход ----------

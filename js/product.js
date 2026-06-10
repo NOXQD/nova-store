@@ -85,6 +85,7 @@
     // product.image сохраняется в LocalStorage внутри CartItem (см. Cart.toJSON).
     const addBtn = document.getElementById('addToCartBtn');
     addBtn.addEventListener('click', () => {
+      if (!requireAuth('Войдите, чтобы добавлять товары в корзину')) return;
       cart.addProduct(product, quantity);
       updateCartIcon(true);
       addBtn.classList.remove('pulse-once');

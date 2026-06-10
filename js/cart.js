@@ -1,8 +1,9 @@
 // === CART.JS ===
-// Корзина: рендер из LocalStorage, изменение количества, удаление с анимацией,
-// плавный пересчёт суммы, модальное окно оформления заказа.
+// Корзина: гейт авторизации, рендер из LocalStorage, изменение количества,
+// удаление с анимацией, многошаговое оформление: заказ → карта → оплата → успех.
 
 (() => {
+  const authGate = document.getElementById('cartAuthGate');
   const layout = document.getElementById('cartLayout');
   const itemsBox = document.getElementById('cartItems');
   const emptyBlock = document.getElementById('cartEmpty');
@@ -13,20 +14,39 @@
 
   const modal = document.getElementById('checkoutModal');
   const modalBody = document.getElementById('modalBody');
-  const modalConfirmStep = document.getElementById('modalConfirmStep');
-  const modalSuccessStep = document.getElementById('modalSuccessStep');
+  const stepOrder = document.getElementById('stepOrder');
+  const stepCard = document.getElementById('stepCard');
+  const stepPaying = document.getElementById('stepPaying');
+  const stepSuccess = document.getElementById('stepSuccess');
+  const cardList = document.getElementById('cardList');
+  const addCardBtn = document.getElementById('addCardBtn');
+  const payBtn = document.getElementById('payBtn');
   const modalCancel = document.getElementById('modalCancel');
-  const modalConfirm = document.getElementById('modalConfirm');
   const modalClose = document.getElementById('modalClose');
+  const successOrderInfo = document.getElementById('successOrderInfo');
+
+  const cardForm = document.getElementById('cardForm');
+  const cardNumber = document.getElementById('cardNumber');
+  const cardHolder = document.getElementById('cardHolder');
+  const cardExp = document.getElementById('cardExp');
+  const cardCvc = document.getElementById('cardCvc');
+  const cardBackBtn = document.getElementById('cardBackBtn');
 
   const cart = Cart.load();
   let displayedTotal = cart.getTotal();
   let clearArmed = false;
   let clearArmTimer = null;
+  let selectedCardId = null;
+  let orderPlaced = false;
 
   // ---------- Плавная анимация числа итога ----------
 
   function animateNumber(el, from, to, duration = 450) {
+    // В фоновой вкладке requestAnimationFrame заморожен — ставим значение сразу
+    if (document.hidden || from === to) {
+      el.textContent = `$${to.toFixed(2)}`;
+      return;
+    }
     const start = performance.now();
     const step = (now) => {
       const progress = Math.min((now - start) / duration, 1);
@@ -44,7 +64,7 @@
     displayedTotal = total;
   }
 
-  // ---------- Рендер ----------
+  // ---------- Рендер корзины ----------
 
   function renderRow(item, index, animate) {
     const p = item.product;
@@ -84,6 +104,14 @@
   }
 
   function renderCart(animate = true) {
+    if (!isLoggedIn()) {
+      authGate.hidden = false;
+      layout.hidden = true;
+      emptyBlock.hidden = true;
+      return;
+    }
+    authGate.hidden = true;
+
     const isEmpty = cart.items.length === 0;
     layout.hidden = isEmpty;
     emptyBlock.hidden = !isEmpty;
@@ -102,7 +130,6 @@
     cart.updateQuantity(id, delta);
     const item = cart.items.find((i) => i.product.id === id);
     if (!item) {
-      // Количество дошло до нуля — товар удалён
       removeRowAnimated(id, false);
       return;
     }
@@ -166,7 +193,48 @@
     showToast('Корзина очищена', 'info');
   });
 
-  // ---------- Модальное окно оформления заказа ----------
+  // ---------- Оформление заказа ----------
+
+  function showStep(step) {
+    [stepOrder, stepCard, stepPaying, stepSuccess].forEach((s) => {
+      s.hidden = s !== step;
+    });
+  }
+
+  // Список привязанных карт (радио-выбор)
+  function renderCardList() {
+    const cards = loadCards();
+
+    if (cards.length === 0) {
+      cardList.innerHTML = `<p class="card-list-empty">Нет привязанных карт. Привяжите карту, чтобы оплатить заказ.</p>`;
+      selectedCardId = null;
+    } else {
+      if (!cards.some((c) => c.id === selectedCardId)) {
+        selectedCardId = cards[0].id;
+      }
+      cardList.innerHTML = cards
+        .map(
+          (card) => `
+          <label class="card-option">
+            <input type="radio" name="payCard" value="${card.id}" ${card.id === selectedCardId ? 'checked' : ''}>
+            <span class="card-brand">${escapeHtml(card.brand)}</span>
+            <span class="card-num">•••• ${card.last4}</span>
+            <span class="card-exp">${escapeHtml(card.exp)}</span>
+          </label>`
+        )
+        .join('');
+    }
+
+    payBtn.disabled = !selectedCardId;
+    payBtn.textContent = `Оплатить $${cart.getTotal().toFixed(2)}`;
+  }
+
+  cardList.addEventListener('change', (e) => {
+    if (e.target.name === 'payCard') {
+      selectedCardId = e.target.value;
+      payBtn.disabled = false;
+    }
+  });
 
   function openModal() {
     const lines = cart.items
@@ -185,8 +253,9 @@
         <span>$${cart.getTotal().toFixed(2)}</span>
       </div>
     `;
-    modalConfirmStep.hidden = false;
-    modalSuccessStep.hidden = true;
+    renderCardList();
+    orderPlaced = false;
+    showStep(stepOrder);
     modal.hidden = false;
     document.body.style.overflow = 'hidden';
   }
@@ -194,9 +263,11 @@
   function closeModal() {
     modal.hidden = true;
     document.body.style.overflow = '';
+    if (orderPlaced) renderCart(false);
   }
 
   checkoutBtn.addEventListener('click', () => {
+    if (!requireAuth('Войдите, чтобы оформить заказ')) return;
     if (cart.items.length === 0) {
       showToast('Корзина пуста', 'error');
       return;
@@ -204,33 +275,90 @@
     openModal();
   });
 
-  modalConfirm.addEventListener('click', () => {
-    cart.clear();
-    modalConfirmStep.hidden = true;
-    modalSuccessStep.hidden = false;
-    updateCartIcon();
+  // Шаг привязки карты
+  addCardBtn.addEventListener('click', () => {
+    cardForm.reset();
+    ['cardNumber', 'cardHolder', 'cardExp', 'cardCvc'].forEach((id) => {
+      document.getElementById(id).classList.remove('invalid');
+      document.getElementById(`${id}Error`).textContent = '';
+    });
+    showStep(stepCard);
+  });
+
+  cardBackBtn.addEventListener('click', () => {
+    renderCardList();
+    showStep(stepOrder);
+  });
+
+  attachCardInputMasks(cardNumber, cardExp, cardCvc);
+
+  cardForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const { errors, card } = validateCardForm({
+      number: cardNumber.value,
+      holder: cardHolder.value,
+      exp: cardExp.value,
+      cvc: cardCvc.value,
+    });
+
+    const fields = { number: 'cardNumber', holder: 'cardHolder', exp: 'cardExp', cvc: 'cardCvc' };
+    Object.entries(fields).forEach(([key, id]) => {
+      const input = document.getElementById(id);
+      const errorEl = document.getElementById(`${id}Error`);
+      input.classList.toggle('invalid', Boolean(errors[key]));
+      errorEl.textContent = errors[key] || '';
+    });
+
+    if (!card) {
+      cardForm.classList.remove('shake');
+      void cardForm.offsetWidth;
+      cardForm.classList.add('shake');
+      return;
+    }
+
+    const cards = loadCards();
+    cards.push(card);
+    saveCards(cards);
+    selectedCardId = card.id;
+
+    showToast(`Карта •••• ${card.last4} привязана`, 'success');
+    renderCardList();
+    showStep(stepOrder);
+  });
+
+  // Оплата (имитация обработки платежа)
+  payBtn.addEventListener('click', () => {
+    if (!selectedCardId) {
+      showToast('Привяжите карту для оплаты', 'error');
+      return;
+    }
+    const card = loadCards().find((c) => c.id === selectedCardId);
+    if (!card) return;
+
+    showStep(stepPaying);
+
+    setTimeout(() => {
+      const order = createOrder(cart, card);
+      cart.clear();
+      orderPlaced = true;
+      updateCartIcon();
+      successOrderInfo.textContent =
+        `Заказ ${order.id} на сумму $${order.total.toFixed(2)} оплачен картой •••• ${card.last4}`;
+      showStep(stepSuccess);
+    }, 2200);
   });
 
   modalCancel.addEventListener('click', closeModal);
-
-  modalClose.addEventListener('click', () => {
-    closeModal();
-    renderCart(false);
-  });
+  modalClose.addEventListener('click', closeModal);
 
   modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      closeModal();
-      // если заказ уже оформлен — обновить страницу корзины
-      if (!modalSuccessStep.hidden) renderCart(false);
-    }
+    // не даём закрыть модал кликом по фону во время «оплаты»
+    if (e.target === modal && stepPaying.hidden) closeModal();
   });
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !modal.hidden) {
-      closeModal();
-      if (!modalSuccessStep.hidden) renderCart(false);
-    }
+    if (e.key === 'Escape' && !modal.hidden && stepPaying.hidden) closeModal();
   });
 
   // ---------- Инициализация ----------

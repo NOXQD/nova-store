@@ -94,6 +94,7 @@
     grid.querySelectorAll('.btn-add').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
+        if (!requireAuth('Войдите, чтобы добавлять товары в корзину')) return;
         const id = Number(btn.dataset.id);
         const product = allProducts.find((p) => p.id === id);
         if (!product) return;

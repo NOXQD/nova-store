@@ -1,6 +1,6 @@
 // === COMMON.JS ===
 // Общие функции: шапка, badge корзины, toast, ripple, reveal-анимации,
-// обработка ошибок изображений, утилиты.
+// авторизация-гейт, банковские карты, заказы, утилиты.
 
 // ---------- Утилиты ----------
 
@@ -44,7 +44,184 @@ function handleImgError(img) {
   }
 }
 
-// ---------- Работа с количеством товаров в корзине ----------
+// ---------- Текущий пользователь ----------
+
+function getStoredUser() {
+  try {
+    const raw = localStorage.getItem('novastore_current_user');
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    return data && data.email ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+function isLoggedIn() {
+  return Boolean(getStoredUser());
+}
+
+// Гейт: без входа покупки недоступны. Показывает toast и уводит на auth.html.
+function requireAuth(message = 'Войдите, чтобы продолжить') {
+  if (isLoggedIn()) return true;
+  showToast(message, 'error');
+  setTimeout(() => {
+    window.location.href = 'auth.html';
+  }, 1200);
+  return false;
+}
+
+// Ключ в LocalStorage, привязанный к email текущего пользователя
+function userStorageKey(prefix) {
+  const user = getStoredUser();
+  return user ? `${prefix}_${user.email.toLowerCase()}` : null;
+}
+
+// ---------- Банковские карты пользователя ----------
+// Учебная имитация: полный номер и CVC НЕ сохраняются —
+// только бренд, последние 4 цифры, срок и имя держателя.
+
+function loadCards() {
+  const key = userStorageKey('novastore_cards');
+  if (!key) return [];
+  try {
+    return JSON.parse(localStorage.getItem(key)) || [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCards(cards) {
+  const key = userStorageKey('novastore_cards');
+  if (key) localStorage.setItem(key, JSON.stringify(cards));
+}
+
+function luhnCheck(digits) {
+  let sum = 0;
+  let alternate = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let d = Number(digits[i]);
+    if (alternate) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    sum += d;
+    alternate = !alternate;
+  }
+  return sum % 10 === 0;
+}
+
+function detectCardBrand(digits) {
+  if (/^220[0-4]/.test(digits)) return 'МИР';
+  if (/^4/.test(digits)) return 'Visa';
+  if (/^(5[1-5]|2[2-7])/.test(digits)) return 'Mastercard';
+  return 'Карта';
+}
+
+// Валидация формы карты. Возвращает { errors: {...}, card } —
+// card заполнена только если ошибок нет.
+function validateCardForm({ number, holder, exp, cvc }) {
+  const errors = {};
+  const digits = number.replace(/\D/g, '');
+
+  if (digits.length !== 16) {
+    errors.number = 'Номер карты — 16 цифр';
+  } else if (!luhnCheck(digits)) {
+    errors.number = 'Неверный номер карты';
+  }
+
+  if (holder.trim().length < 3) {
+    errors.holder = 'Укажите имя, как на карте';
+  }
+
+  const expMatch = exp.match(/^(\d{2})\/(\d{2})$/);
+  if (!expMatch) {
+    errors.exp = 'Формат: ММ/ГГ';
+  } else {
+    const month = Number(expMatch[1]);
+    const year = 2000 + Number(expMatch[2]);
+    const now = new Date();
+    if (month < 1 || month > 12) {
+      errors.exp = 'Неверный месяц';
+    } else if (year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1)) {
+      errors.exp = 'Срок действия карты истёк';
+    }
+  }
+
+  if (!/^\d{3,4}$/.test(cvc)) {
+    errors.cvc = 'CVC — 3 цифры';
+  }
+
+  if (Object.keys(errors).length > 0) return { errors, card: null };
+
+  return {
+    errors,
+    card: {
+      id: `card_${Date.now()}`,
+      brand: detectCardBrand(digits),
+      last4: digits.slice(-4),
+      holder: holder.trim().toUpperCase(),
+      exp,
+    },
+  };
+}
+
+// Автоформат полей карты: номер группами по 4, срок ММ/ГГ
+function attachCardInputMasks(numberInput, expInput, cvcInput) {
+  numberInput.addEventListener('input', () => {
+    const digits = numberInput.value.replace(/\D/g, '').slice(0, 16);
+    numberInput.value = digits.replace(/(\d{4})(?=\d)/g, '$1 ');
+  });
+  expInput.addEventListener('input', () => {
+    let digits = expInput.value.replace(/\D/g, '').slice(0, 4);
+    if (digits.length >= 3) digits = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    expInput.value = digits;
+  });
+  cvcInput.addEventListener('input', () => {
+    cvcInput.value = cvcInput.value.replace(/\D/g, '').slice(0, 4);
+  });
+}
+
+// ---------- Заказы пользователя ----------
+
+function loadOrders() {
+  const key = userStorageKey('novastore_orders');
+  if (!key) return [];
+  try {
+    return JSON.parse(localStorage.getItem(key)) || [];
+  } catch {
+    return [];
+  }
+}
+
+function saveOrders(orders) {
+  const key = userStorageKey('novastore_orders');
+  if (key) localStorage.setItem(key, JSON.stringify(orders));
+}
+
+function createOrder(cart, card) {
+  const order = {
+    id: `NS-${Date.now().toString().slice(-8)}`,
+    date: new Date().toISOString(),
+    items: cart.items.map((item) => ({
+      id: item.product.id,
+      title: item.product.title,
+      price: item.product.price,
+      image: item.product.image,
+      quantity: item.quantity,
+    })),
+    total: cart.getTotal(),
+    cardLast4: card.last4,
+    cardBrand: card.brand,
+    status: 'Оплачен',
+  };
+  const orders = loadOrders();
+  orders.unshift(order);
+  saveOrders(orders);
+  return order;
+}
+
+// ---------- Количество товаров в корзине ----------
 
 function getCartCount() {
   try {
@@ -64,22 +241,8 @@ function updateCartIcon(animate = false) {
   badge.classList.toggle('hidden', count === 0);
   if (animate && count > 0) {
     badge.classList.remove('bounce');
-    // перезапуск анимации
     void badge.offsetWidth;
     badge.classList.add('bounce');
-  }
-}
-
-// ---------- Текущий пользователь (читается из LocalStorage) ----------
-
-function getStoredUser() {
-  try {
-    const raw = localStorage.getItem('novastore_current_user');
-    if (!raw) return null;
-    const data = JSON.parse(raw);
-    return data && data.email ? data : null;
-  } catch {
-    return null;
   }
 }
 
@@ -93,7 +256,8 @@ function renderHeader() {
   const user = getStoredUser();
 
   const authPart = user
-    ? `<span class="nav-user">👤 ${escapeHtml(user.name)}</span>
+    ? `<a href="profile.html" class="${page === 'profile.html' ? 'active' : ''}">Профиль</a>
+       <a href="profile.html" class="nav-user">👤 ${escapeHtml(user.name)}</a>
        <button type="button" class="btn-logout" id="logoutBtn">Выйти</button>`
     : `<a href="auth.html" class="${page === 'auth.html' ? 'active' : ''}">Войти</a>`;
 
@@ -148,8 +312,13 @@ function renderHeader() {
     logoutBtn.addEventListener('click', () => {
       localStorage.removeItem('novastore_current_user');
       showToast('Вы вышли из аккаунта', 'info');
-      renderHeader();
-      updateCartIcon();
+      const protectedPages = ['profile.html'];
+      if (protectedPages.includes(page)) {
+        setTimeout(() => { window.location.href = 'index.html'; }, 600);
+      } else {
+        renderHeader();
+        updateCartIcon();
+      }
     });
   }
 

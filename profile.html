@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<!-- === PROFILE.HTML === -->
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Профиль — NOVA STORE</title>
+  <meta name="description" content="Личный кабинет — учебный интернет-магазин NOVA STORE">
+  <link rel="stylesheet" href="css/style.css?v=3">
+</head>
+<body>
+
+  <div id="app-header"></div>
+
+  <main>
+    <div class="container profile-page">
+      <h1 class="page-title">Личный кабинет</h1>
+
+      <!-- Гейт: профиль только для вошедших -->
+      <div class="auth-gate" id="profileAuthGate" hidden>
+        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+          <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <h2>Войдите, чтобы открыть личный кабинет</h2>
+        <p>Здесь хранятся ваши данные, привязанные карты и история заказов</p>
+        <div class="auth-gate-actions">
+          <a href="auth.html" class="btn btn-primary">Войти или зарегистрироваться</a>
+          <a href="index.html" class="btn btn-ghost">Смотреть каталог</a>
+        </div>
+      </div>
+
+      <div class="profile-layout" id="profileLayout" hidden>
+
+        <!-- Данные пользователя -->
+        <section class="profile-section glass-card">
+          <h2>Мои данные</h2>
+          <div class="profile-info">
+            <div class="profile-avatar" aria-hidden="true">👤</div>
+            <div>
+              <p class="profile-name" id="profileName"></p>
+              <p class="profile-email" id="profileEmail"></p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Карты -->
+        <section class="profile-section glass-card">
+          <h2>Мои карты</h2>
+          <div class="saved-cards" id="savedCards"></div>
+          <button type="button" class="btn btn-ghost btn-block" id="toggleCardFormBtn">+ Привязать новую карту</button>
+
+          <form id="profileCardForm" class="profile-card-form" hidden novalidate>
+            <p class="modal-note">Учебный проект: данные карты никуда не отправляются, сохраняются только последние 4 цифры</p>
+            <div class="form-field">
+              <input type="text" id="cardNumber" placeholder=" " inputmode="numeric" autocomplete="cc-number" maxlength="19" required>
+              <label for="cardNumber">Номер карты</label>
+              <span class="field-error" id="cardNumberError"></span>
+            </div>
+            <div class="form-field">
+              <input type="text" id="cardHolder" placeholder=" " autocomplete="cc-name" required>
+              <label for="cardHolder">Имя держателя</label>
+              <span class="field-error" id="cardHolderError"></span>
+            </div>
+            <div class="card-form-row">
+              <div class="form-field">
+                <input type="text" id="cardExp" placeholder=" " inputmode="numeric" autocomplete="cc-exp" maxlength="5" required>
+                <label for="cardExp">ММ/ГГ</label>
+                <span class="field-error" id="cardExpError"></span>
+              </div>
+              <div class="form-field">
+                <input type="password" id="cardCvc" placeholder=" " inputmode="numeric" autocomplete="cc-csc" maxlength="4" required>
+                <label for="cardCvc">CVC</label>
+                <span class="field-error" id="cardCvcError"></span>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Привязать карту</button>
+          </form>
+        </section>
+
+        <!-- Заказы -->
+        <section class="profile-section glass-card profile-orders">
+          <h2>Мои заказы</h2>
+          <div class="orders-list" id="ordersList"></div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>© 2026 NOVA STORE. Учебный проект — данные из <a href="https://fakestoreapi.com" target="_blank" rel="noopener">Fake Store API</a></p>
+    </div>
+  </footer>
+
+  <script src="js/models.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/profile.js"></script>
+</body>
+</html>
