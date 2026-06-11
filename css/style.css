@@ -1752,25 +1752,32 @@ h1, h2, h3 { font-weight: 700; letter-spacing: -0.03em; }
 }
 
 @media (max-width: 640px) {
-  /* На телефоне слайд вертикальный: фото товара сверху, текст под ним */
+  /* На телефоне слайд вертикальный и компактный: фото сверху, текст под ним */
+  .hero-carousel { margin: 14px 0 6px; }
   .carousel-slide {
     grid-template-columns: 1fr;
     grid-auto-rows: auto;
-    gap: 14px;
-    padding: 18px 44px 34px;
+    gap: 8px;
+    padding: 12px 40px 26px;
   }
   .slide-photo {
     order: -1;
     width: 100%;
-    padding: 12px;
+    padding: 8px;
+    border-radius: var(--radius-sm);
   }
-  .slide-photo img { max-height: 150px; }
-  .slide-info { align-items: center; text-align: center; gap: 10px; }
-  .slide-title { -webkit-line-clamp: 2; font-size: 1.1rem; }
-  .slide-info .btn { width: 100%; }
-  .carousel-arrow { width: 34px; height: 34px; font-size: 20px; }
-  .carousel-prev { left: 8px; }
-  .carousel-next { right: 8px; }
+  .slide-photo img { max-height: 104px; }
+  .slide-info { align-items: center; text-align: center; gap: 7px; }
+  .slide-badge { font-size: 11px; padding: 4px 11px; }
+  .slide-title { -webkit-line-clamp: 1; font-size: 0.95rem; }
+  .slide-price { font-size: 1.4rem; }
+  .slide-old-price { font-size: 0.95rem; }
+  .slide-info .btn { width: 100%; min-height: 40px; padding: 8px 16px; }
+  .carousel-arrow { width: 30px; height: 30px; font-size: 18px; }
+  .carousel-prev { left: 6px; }
+  .carousel-next { right: 6px; }
+  .carousel-dots { bottom: 9px; }
+  .hero-carousel-skeleton { height: 230px; }
 }
 
 /* ---------- 25. Скидки и цены в карточках ---------- */
