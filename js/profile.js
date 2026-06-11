@@ -173,5 +173,6 @@
     attachCardInputMasks(cardNumber, cardExp, cardCvc);
     renderCards();
     renderOrders();
+    renderThemePicker(document.getElementById('themePicker'));
   });
 })();

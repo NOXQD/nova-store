@@ -28,6 +28,30 @@ function applyTheme(name) {
 // применяем сразу, до DOMContentLoaded — чтобы не мигала тема по умолчанию
 applyTheme(getTheme());
 
+// Сетка выбора темы для личного кабинета. container — DOM-элемент.
+function renderThemePicker(container) {
+  if (!container) return;
+  container.innerHTML = Object.entries(THEMES)
+    .map(
+      ([key, theme]) => `
+      <button type="button" class="theme-card ${key === getTheme() ? 'selected' : ''}" data-theme-pick="${key}">
+        <span class="theme-card-preview" style="background: ${theme.dot}"></span>
+        <span class="theme-card-label">${theme.label}</span>
+      </button>`
+    )
+    .join('');
+
+  container.addEventListener('click', (e) => {
+    const card = e.target.closest('[data-theme-pick]');
+    if (!card) return;
+    applyTheme(card.dataset.themePick);
+    container.querySelectorAll('.theme-card').forEach((c) => {
+      c.classList.toggle('selected', c === card);
+    });
+    showToast(`Тема: ${THEMES[card.dataset.themePick].label}`, 'success');
+  });
+}
+
 // ---------- Кастомные выпадающие списки ----------
 // Нативный select остаётся в DOM (значение, change-события),
 // но рисуется стилизованная кнопка + выпадающая панель.
@@ -791,28 +815,6 @@ function renderHeader() {
             <span class="header-icon-label">Корзина</span>
             <span class="cart-badge cart-count-badge hidden">0</span>
           </a>
-          <div class="theme-anchor">
-            <button type="button" class="header-icon-link theme-toggle" id="themeToggle" aria-label="Тема оформления" aria-haspopup="menu">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <circle cx="13.5" cy="6.5" r="2.5"></circle>
-                <circle cx="19" cy="13" r="2.5"></circle>
-                <circle cx="6" cy="12" r="2.5"></circle>
-                <circle cx="11" cy="18.5" r="2.5"></circle>
-              </svg>
-              <span class="header-icon-label">Тема</span>
-            </button>
-            <div class="theme-menu" id="themeMenu" hidden role="menu">
-              ${Object.entries(THEMES)
-                .map(
-                  ([key, theme]) => `
-                  <button type="button" class="theme-option ${key === getTheme() ? 'selected' : ''}" data-theme-pick="${key}" role="menuitem">
-                    <span class="theme-dot" style="background: ${theme.dot}"></span>
-                    ${theme.label}
-                  </button>`
-                )
-                .join('')}
-            </div>
-          </div>
           <button type="button" class="hamburger" id="hamburgerBtn" aria-label="Меню" aria-expanded="false">
             <span></span><span></span><span></span>
           </button>
@@ -826,27 +828,6 @@ function renderHeader() {
   const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 10);
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
-
-  // Переключатель тем
-  const themeToggle = document.getElementById('themeToggle');
-  const themeMenu = document.getElementById('themeMenu');
-  themeToggle.addEventListener('click', (e) => {
-    e.stopPropagation();
-    themeMenu.hidden = !themeMenu.hidden;
-  });
-  themeMenu.addEventListener('click', (e) => {
-    const option = e.target.closest('[data-theme-pick]');
-    if (!option) return;
-    applyTheme(option.dataset.themePick);
-    themeMenu.querySelectorAll('.theme-option').forEach((o) => {
-      o.classList.toggle('selected', o === option);
-    });
-    themeMenu.hidden = true;
-    showToast(`Тема: ${THEMES[option.dataset.themePick].label}`, 'success');
-  });
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.theme-anchor')) themeMenu.hidden = true;
-  });
 
   const hamburger = document.getElementById('hamburgerBtn');
   hamburger.addEventListener('click', () => {

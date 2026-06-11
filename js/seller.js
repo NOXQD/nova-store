@@ -24,8 +24,59 @@
   const pPrice = document.getElementById('pPrice');
   const pCategory = document.getElementById('pCategory');
   const pImage = document.getElementById('pImage');
+  const pImageFile = document.getElementById('pImageFile');
+  const photoPreview = document.getElementById('photoPreview');
+  const photoPreviewImg = document.getElementById('photoPreviewImg');
   const pDescription = document.getElementById('pDescription');
   const sellerProductsList = document.getElementById('sellerProductsList');
+
+  // Фото товара: либо загруженный файл (base64 dataURL), либо https-ссылка
+  let uploadedImage = null;
+
+  function showPreview(src) {
+    photoPreviewImg.src = src;
+    photoPreviewImg.hidden = false;
+    photoPreview.classList.add('has-photo');
+  }
+
+  function clearPreview() {
+    uploadedImage = null;
+    photoPreviewImg.removeAttribute('src');
+    photoPreviewImg.hidden = true;
+    photoPreview.classList.remove('has-photo');
+  }
+
+  pImageFile.addEventListener('change', () => {
+    const file = pImageFile.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setFieldError(pImage, 'pImageError', 'Выберите файл изображения');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setFieldError(pImage, 'pImageError', 'Файл больше 2 МБ — выберите фото поменьше');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      uploadedImage = reader.result; // data:image/...;base64,...
+      pImage.value = '';
+      showPreview(uploadedImage);
+      setFieldError(pImage, 'pImageError', '');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // Превью https-ссылки по мере ввода
+  pImage.addEventListener('input', () => {
+    uploadedImage = null;
+    const value = pImage.value.trim();
+    if (/^https:\/\/.+/i.test(value)) {
+      showPreview(value);
+    } else {
+      clearPreview();
+    }
+  });
 
   const BIZ_LABELS = { ip: 'ИП', too: 'ТОО', self: 'Самозанятый' };
 
@@ -212,12 +263,15 @@
       valid = false;
     } else setFieldError(pPrice, 'pPriceError', '');
 
-    let imageOk = false;
-    try {
-      imageOk = new URL(pImage.value).protocol === 'https:';
-    } catch { /* не URL */ }
-    if (!imageOk) {
-      setFieldError(pImage, 'pImageError', 'Нужна прямая https-ссылка на изображение');
+    // Фото: либо загруженный файл, либо корректная https-ссылка
+    let image = uploadedImage;
+    if (!image) {
+      try {
+        if (new URL(pImage.value).protocol === 'https:') image = pImage.value.trim();
+      } catch { /* не URL */ }
+    }
+    if (!image) {
+      setFieldError(pImage, 'pImageError', 'Загрузите фото или вставьте https-ссылку');
       valid = false;
     } else setFieldError(pImage, 'pImageError', '');
 
@@ -241,7 +295,7 @@
       title: pTitle.value.trim(),
       price,
       description: pDescription.value.trim(),
-      image: pImage.value.trim(),
+      image,
       category: pCategory.value,
       rating: { rate: 0, count: 0 },
       createdAt: new Date().toISOString(),
@@ -249,6 +303,7 @@
     saveSellerProducts(all);
 
     productForm.reset();
+    clearPreview();
     renderMyProducts();
     showToast('Товар опубликован в каталоге', 'success');
   });

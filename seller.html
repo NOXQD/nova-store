@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Кабинет продавца — NOVA STORE</title>
   <meta name="description" content="Продавайте на NOVA STORE: регистрация продавца и управление товарами">
-  <link rel="stylesheet" href="css/style.css?v=6">
+  <link rel="stylesheet" href="css/style.css?v=7">
   <script>document.documentElement.dataset.theme = localStorage.getItem("novastore_theme") || "midnight";</script>
 </head>
 <body>
@@ -132,10 +132,20 @@
                 <label for="pCategory" class="select-label">Категория</label>
               </div>
             </div>
-            <div class="form-field">
-              <input type="url" id="pImage" placeholder=" " required>
-              <label for="pImage">Ссылка на фото (https://...)</label>
-              <span class="field-error" id="pImageError"></span>
+            <div class="photo-upload">
+              <div class="photo-preview" id="photoPreview">
+                <span class="photo-placeholder">Фото товара</span>
+                <img id="photoPreviewImg" alt="" hidden>
+              </div>
+              <div class="photo-upload-controls">
+                <label class="btn btn-ghost photo-upload-btn">
+                  Загрузить фото с устройства
+                  <input type="file" id="pImageFile" accept="image/*" hidden>
+                </label>
+                <span class="photo-or">или вставьте ссылку</span>
+                <input type="url" id="pImage" class="photo-url-input" placeholder="https://...">
+                <span class="field-error" id="pImageError"></span>
+              </div>
             </div>
             <div class="form-field">
               <input type="text" id="pDescription" placeholder=" " maxlength="300" required>
@@ -161,10 +171,10 @@
     </div>
   </footer>
 
-  <script src="js/models.js?v=6"></script>
-  <script src="js/api.js?v=6"></script>
-  <script src="js/common.js?v=6"></script>
-  <script src="js/chat.js?v=6"></script>
-  <script src="js/seller.js?v=6"></script>
+  <script src="js/models.js?v=7"></script>
+  <script src="js/api.js?v=7"></script>
+  <script src="js/common.js?v=7"></script>
+  <script src="js/chat.js?v=7"></script>
+  <script src="js/seller.js?v=7"></script>
 </body>
 </html>
