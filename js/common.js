@@ -3,6 +3,158 @@
 // безопасность данных (хэширование паролей, минимизация хранимого),
 // избранное, сравнение, купоны, мок платёжного шлюза, карты, заказы, продавцы.
 
+// ---------- Темы оформления ----------
+// 4 палитры: две тёмные и две светлые. Выбор хранится в LocalStorage
+// и применяется через data-theme на <html> (CSS-переменные).
+
+const THEMES = {
+  midnight: { label: 'Midnight — тёмная', dot: 'linear-gradient(135deg, #6c63ff, #3b82f6)' },
+  graphite: { label: 'Graphite — тёмная', dot: 'linear-gradient(135deg, #0ea5b7, #3b82f6)' },
+  daylight: { label: 'Daylight — светлая', dot: 'linear-gradient(135deg, #f5f5f7 50%, #6c63ff 50%)' },
+  cream: { label: 'Cream — светлая', dot: 'linear-gradient(135deg, #f8f3ea 50%, #e3633d 50%)' },
+};
+
+function getTheme() {
+  const saved = localStorage.getItem('novastore_theme');
+  return THEMES[saved] ? saved : 'midnight';
+}
+
+function applyTheme(name) {
+  if (!THEMES[name]) name = 'midnight';
+  document.documentElement.dataset.theme = name;
+  localStorage.setItem('novastore_theme', name);
+}
+
+// применяем сразу, до DOMContentLoaded — чтобы не мигала тема по умолчанию
+applyTheme(getTheme());
+
+// ---------- Кастомные выпадающие списки ----------
+// Нативный select остаётся в DOM (значение, change-события),
+// но рисуется стилизованная кнопка + выпадающая панель.
+
+function enhanceSelect(select) {
+  if (!select || select.dataset.enhanced) return;
+  select.dataset.enhanced = '1';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'nice-select-wrap';
+  select.parentNode.insertBefore(wrap, select);
+  wrap.appendChild(select);
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'nice-select-btn';
+  btn.setAttribute('aria-haspopup', 'listbox');
+
+  const labelSpan = document.createElement('span');
+  labelSpan.className = 'nice-select-value';
+  btn.appendChild(labelSpan);
+  btn.insertAdjacentHTML(
+    'beforeend',
+    `<svg class="nice-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>`
+  );
+
+  const list = document.createElement('div');
+  list.className = 'nice-select-list';
+  list.setAttribute('role', 'listbox');
+
+  function rebuild() {
+    labelSpan.textContent = select.options[select.selectedIndex]?.text || '';
+    list.innerHTML = [...select.options]
+      .map(
+        (opt, i) => `
+        <button type="button" class="nice-option ${i === select.selectedIndex ? 'selected' : ''}"
+                data-index="${i}" role="option">${escapeHtml(opt.text)}</button>`
+      )
+      .join('');
+  }
+  rebuild();
+
+  wrap.appendChild(btn);
+  wrap.appendChild(list);
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.nice-select-wrap.open').forEach((w) => {
+      if (w !== wrap) w.classList.remove('open');
+    });
+    wrap.classList.toggle('open');
+  });
+
+  list.addEventListener('click', (e) => {
+    const opt = e.target.closest('.nice-option');
+    if (!opt) return;
+    select.selectedIndex = Number(opt.dataset.index);
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    rebuild();
+    wrap.classList.remove('open');
+  });
+
+  select.addEventListener('change', rebuild);
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.nice-select-wrap')) {
+    document.querySelectorAll('.nice-select-wrap.open').forEach((w) => w.classList.remove('open'));
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.nice-select-wrap.open').forEach((w) => w.classList.remove('open'));
+  }
+});
+
+// ---------- Email-сервис ----------
+// Отправка чека о покупке на почту покупателя через formsubmit.co
+// (без ключей и бэкенда). При первом письме сервис присылает на почту
+// запрос подтверждения — после него чеки приходят автоматически.
+
+const EmailService = {
+  async sendReceipt(order, user) {
+    const lines = order.items
+      .map((i) => `• ${i.title} × ${i.quantity} — $${(i.price * i.quantity).toFixed(2)}`)
+      .join('\n');
+    const message = [
+      `Здравствуйте, ${user.name}!`,
+      '',
+      `Ваш заказ ${order.id} успешно оплачен.`,
+      '',
+      'Состав заказа:',
+      lines,
+      '',
+      order.coupon ? `Промокод ${order.coupon}: −$${order.discountAmount.toFixed(2)}` : null,
+      `Доставка: ${order.deliveryMethod} (${order.address}) — ${order.deliveryFee > 0 ? `$${order.deliveryFee.toFixed(2)}` : 'бесплатно'}`,
+      `Оплачено картой ${order.cardBrand} •••• ${order.cardLast4}`,
+      '',
+      `ИТОГО: $${order.total.toFixed(2)}`,
+      `Чек: ${order.receiptId}`,
+      '',
+      'Спасибо за покупку в NOVA STORE!',
+    ]
+      .filter((line) => line !== null)
+      .join('\n');
+
+    try {
+      const response = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(user.email)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          name: 'NOVA STORE',
+          _subject: `NOVA STORE: заказ ${order.id} оплачен`,
+          _template: 'box',
+          message,
+        }),
+      });
+      const data = await response.json();
+      return data.success === 'true' || data.success === true;
+    } catch (err) {
+      console.error('[Email] не удалось отправить чек:', err.message);
+      return false;
+    }
+  },
+};
+
 // ---------- Утилиты ----------
 
 function escapeHtml(str) {
@@ -639,6 +791,28 @@ function renderHeader() {
             <span class="header-icon-label">Корзина</span>
             <span class="cart-badge cart-count-badge hidden">0</span>
           </a>
+          <div class="theme-anchor">
+            <button type="button" class="header-icon-link theme-toggle" id="themeToggle" aria-label="Тема оформления" aria-haspopup="menu">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="13.5" cy="6.5" r="2.5"></circle>
+                <circle cx="19" cy="13" r="2.5"></circle>
+                <circle cx="6" cy="12" r="2.5"></circle>
+                <circle cx="11" cy="18.5" r="2.5"></circle>
+              </svg>
+              <span class="header-icon-label">Тема</span>
+            </button>
+            <div class="theme-menu" id="themeMenu" hidden role="menu">
+              ${Object.entries(THEMES)
+                .map(
+                  ([key, theme]) => `
+                  <button type="button" class="theme-option ${key === getTheme() ? 'selected' : ''}" data-theme-pick="${key}" role="menuitem">
+                    <span class="theme-dot" style="background: ${theme.dot}"></span>
+                    ${theme.label}
+                  </button>`
+                )
+                .join('')}
+            </div>
+          </div>
           <button type="button" class="hamburger" id="hamburgerBtn" aria-label="Меню" aria-expanded="false">
             <span></span><span></span><span></span>
           </button>
@@ -652,6 +826,27 @@ function renderHeader() {
   const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 10);
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
+
+  // Переключатель тем
+  const themeToggle = document.getElementById('themeToggle');
+  const themeMenu = document.getElementById('themeMenu');
+  themeToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    themeMenu.hidden = !themeMenu.hidden;
+  });
+  themeMenu.addEventListener('click', (e) => {
+    const option = e.target.closest('[data-theme-pick]');
+    if (!option) return;
+    applyTheme(option.dataset.themePick);
+    themeMenu.querySelectorAll('.theme-option').forEach((o) => {
+      o.classList.toggle('selected', o === option);
+    });
+    themeMenu.hidden = true;
+    showToast(`Тема: ${THEMES[option.dataset.themePick].label}`, 'success');
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.theme-anchor')) themeMenu.hidden = true;
+  });
 
   const hamburger = document.getElementById('hamburgerBtn');
   hamburger.addEventListener('click', () => {
@@ -819,4 +1014,6 @@ function observeReveal(container) {
 document.addEventListener('DOMContentLoaded', () => {
   renderHeader();
   renderBottomNav();
+  // Все нативные select заменяются на стилизованные дропдауны
+  document.querySelectorAll('select').forEach(enhanceSelect);
 });

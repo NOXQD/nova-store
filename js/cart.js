@@ -541,6 +541,17 @@
       `Заказ ${order.id} на сумму $${order.total.toFixed(2)} оплачен картой •••• ${card.last4}. ` +
       `Доставка: ${order.deliveryMethod.toLowerCase()}, ${order.address}`;
     showStep(stepSuccess);
+
+    // Чек о покупке на почту покупателя
+    const user = getStoredUser();
+    EmailService.sendReceipt(order, user).then((sent) => {
+      if (sent) {
+        successOrderInfo.textContent += `. Чек отправлен на ${user.email}`;
+        showToast(`Чек о покупке отправлен на ${user.email}`, 'success');
+      } else {
+        showToast('Чек на почту отправить не удалось — заказ сохранён в профиле', 'info');
+      }
+    });
   });
 
   modalCancel.addEventListener('click', closeModal);
