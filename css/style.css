@@ -1752,8 +1752,25 @@ h1, h2, h3 { font-weight: 700; letter-spacing: -0.03em; }
 }
 
 @media (max-width: 640px) {
-  .carousel-slide { grid-template-columns: 1fr; padding: 20px 56px 36px; }
-  .slide-photo { display: none; }
+  /* На телефоне слайд вертикальный: фото товара сверху, текст под ним */
+  .carousel-slide {
+    grid-template-columns: 1fr;
+    grid-auto-rows: auto;
+    gap: 14px;
+    padding: 18px 44px 34px;
+  }
+  .slide-photo {
+    order: -1;
+    width: 100%;
+    padding: 12px;
+  }
+  .slide-photo img { max-height: 150px; }
+  .slide-info { align-items: center; text-align: center; gap: 10px; }
+  .slide-title { -webkit-line-clamp: 2; font-size: 1.1rem; }
+  .slide-info .btn { width: 100%; }
+  .carousel-arrow { width: 34px; height: 34px; font-size: 20px; }
+  .carousel-prev { left: 8px; }
+  .carousel-next { right: 8px; }
 }
 
 /* ---------- 25. Скидки и цены в карточках ---------- */
